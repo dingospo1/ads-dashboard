@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Google Ads Dashboard</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f1117; color: #e1e4e8; padding: 24px 32px; }
+
+  /* Header */
+  .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; flex-wrap: wrap; gap: 12px; }
+  h1 { font-size: 24px; font-weight: 600; }
+  .subtitle { color: #6b7280; font-size: 13px; margin-bottom: 28px; }
+  .refresh-bar { display: flex; align-items: center; gap: 12px; }
+  .last-updated { font-size: 12px; color: #6b7280; }
+  .refresh-btn { background: #1a1d27; border: 1px solid #2a2d3a; color: #9ca3af; font-size: 12px; padding: 6px 14px; border-radius: 6px; cursor: pointer; transition: all 0.2s; }
+  .refresh-btn:hover { color: #e1e4e8; border-color: #4a4d5a; background: #22252f; }
+  .refresh-btn.loading { opacity: 0.5; pointer-events: none; }
+  .live-dot { width: 8px; height: 8px; border-radius: 50%; background: #34d399; display: inline-block; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+  /* Summary */
+  .summary-bar { display: flex; gap: 20px; margin-bottom: 28px; flex-wrap: wrap; }
+  .stat-box { background: #1a1d27; border: 1px solid #2a2d3a; border-radius: 10px; padding: 14px 22px; min-width: 130px; }
+  .stat-value { font-size: 26px; font-weight: 700; }
+  .stat-label { font-size: 11px; color: #6b7280; margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+  /* Legend */
+  .legend { display: flex; gap: 20px; margin-bottom: 20px; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #9ca3af; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+  /* MCC sections */
+  .mcc-label { font-size: 13px; font-weight: 600; color: #9ca3af; text-transform: uppercase; letter-spacing: 1px; margin: 24px 0 12px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 16px; margin-bottom: 12px; }
+
+  /* Cards */
+  .card { background: #1a1d27; border-radius: 12px; padding: 20px; border: 1px solid #2a2d3a; transition: border-color 0.2s; }
+  .card:hover { border-color: #3a3d4a; }
+  .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .card-header h2 { font-size: 16px; font-weight: 600; }
+  .badge { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 20px; }
+  .badge-green { background: #064e3b; color: #34d399; }
+  .badge-yellow { background: #713f12; color: #fbbf24; }
+  .badge-red { background: #7f1d1d; color: #f87171; }
+
+  /* Account summary row */
+  .account-summary { display: flex; gap: 20px; margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid #2a2d3a; }
+  .account-stat { font-size: 12px; color: #6b7280; }
+  .account-stat span { font-size: 15px; font-weight: 600; color: #e1e4e8; display: block; margin-top: 1px; }
+
+  /* Campaign rows */
+  .col-header { display: flex; align-items: center; padding: 0 0 6px; margin-bottom: 4px; border-bottom: 1px solid #2a2d3a; }
+  .col-header span { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: #6b7280; font-weight: 600; }
+  .campaign-row { display: flex; align-items: center; padding: 7px 0; border-bottom: 1px solid rgba(42,45,58,0.5); font-size: 12px; }
+  .campaign-row:last-child { border-bottom: none; }
+  .campaign-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #c9cdd5; padding-right: 12px; }
+  .status-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 6px; }
+  .dot-green { background: #34d399; }
+  .dot-yellow { background: #fbbf24; }
+  .dot-red { background: #f87171; }
+  .dot-gray { background: #6b7280; }
+  .campaign-metric { width: 80px; text-align: right; flex-shrink: 0; font-size: 12px; color: #9ca3af; }
+  .campaign-metric.roas { width: 60px; font-weight: 600; }
+  .roas-green { color: #34d399; }
+  .roas-yellow { color: #fbbf24; }
+  .roas-red { color: #f87171; }
+  .toggle-btn { background: none; border: 1px solid #2a2d3a; color: #6b7280; font-size: 11px; padding: 2px 8px; border-radius: 4px; cursor: pointer; margin-top: 6px; }
+  .toggle-btn:hover { color: #e1e4e8; border-color: #4a4d5a; }
+
+  /* Responsive */
+  @media (max-width: 500px) {
+    body { padding: 16px; }
+    .grid { grid-template-columns: 1fr; }
+    .summary-bar { gap: 10px; }
+    .stat-box { min-width: 100px; padding: 12px 16px; }
+    .stat-value { font-size: 20px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Google Ads Performance</h1>
+  <div class="refresh-bar">
+    <span class="live-dot"></span>
+    <span class="last-updated" id="last-updated">Updated: {{ fetched_at }}</span>
+    <button class="refresh-btn" id="refresh-btn" onclick="manualRefresh()">Refresh now</button>
+  </div>
+</div>
+<p class="subtitle">All accounts, Happy Mondays & Upscale MCCs. Last 7 days, by conversion time. Auto-refreshes every hour.</p>
+
+<div class="summary-bar">
+  <div class="stat-box">
+    <div class="stat-value" style="color:#34d399">{{ num_accounts }}</div>
+    <div class="stat-label">Accounts</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-value" style="color:#e1e4e8">${{ "{:,.0f}".format(total_cost) }}</div>
+    <div class="stat-label">Total Cost</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-value" style="color:#34d399">${{ "{:,.0f}".format(total_revenue) }}</div>
+    <div class="stat-label">Total Revenue</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-value" style="color:#34d399">{{ total_roas }}x</div>
+    <div class="stat-label">Blended ROAS</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-value" style="color:#9ca3af">{{ num_campaigns }}</div>
+    <div class="stat-label">Campaigns</div>
+  </div>
+</div>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:#34d399"></div> ROAS 4x+</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#fbbf24"></div> ROAS 2-4x</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#f87171"></div> ROAS under 2x</div>
+</div>
+
+<div class="mcc-label">Happy Mondays MCC</div>
+<div class="grid" id="happy"></div>
+
+<div class="mcc-label">Upscale MCC</div>
+<div class="grid" id="upscale"></div>
+
+<script>
+const data = {{ data_json | safe }};
+
+function fmt(n) { return '$' + n.toLocaleString('en-US', {maximumFractionDigits: 0}); }
+function fmtDec(n) { return '$' + n.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}); }
+function roasClass(r) { return r >= 4 ? 'green' : r >= 2 ? 'yellow' : 'red'; }
+function statusDot(s) {
+  if (s === 'ELIGIBLE') return 'dot-green';
+  if (s === 'LIMITED') return 'dot-yellow';
+  if (s === 'REMOVED' || s === 'PAUSED' || s === 'NOT_ELIGIBLE') return 'dot-gray';
+  return 'dot-red';
+}
+
+function renderCard(account) {
+  const rc = roasClass(account.totalRoas);
+  const maxShow = 8;
+  const campaigns = account.campaigns.filter(c => c.cost > 0);
+  const showToggle = campaigns.length > maxShow;
+  const id = account.name.replace(/[^a-zA-Z]/g, '');
+
+  let rows = campaigns.map((c, i) => {
+    const hidden = (showToggle && i >= maxShow) ? ' style="display:none"' : '';
+    return '<div class="campaign-row" data-group="' + id + '"' + hidden + '>' +
+      '<div class="campaign-name"><span class="status-dot ' + statusDot(c.status) + '"></span>' + c.name + '</div>' +
+      '<div class="campaign-metric">' + fmtDec(c.cost) + '</div>' +
+      '<div class="campaign-metric">' + fmtDec(c.revenue) + '</div>' +
+      '<div class="campaign-metric roas roas-' + roasClass(c.roas) + '">' + c.roas.toFixed(2) + 'x</div>' +
+    '</div>';
+  }).join('');
+
+  const toggleHtml = showToggle
+    ? '<button class="toggle-btn" onclick="toggleRows(\'' + id + '\', this)">Show ' + (campaigns.length - maxShow) + ' more</button>'
+    : '';
+
+  return '<div class="card">' +
+    '<div class="card-header"><h2>' + account.name + '</h2>' +
+    '<span class="badge badge-' + rc + '">' + account.totalRoas.toFixed(2) + 'x ROAS</span></div>' +
+    '<div class="account-summary">' +
+      '<div class="account-stat">Cost<span>' + fmt(account.totalCost) + '</span></div>' +
+      '<div class="account-stat">Revenue<span style="color:#34d399">' + fmt(account.totalRevenue) + '</span></div>' +
+      '<div class="account-stat">Campaigns<span>' + campaigns.length + '</span></div>' +
+    '</div>' +
+    '<div class="col-header">' +
+      '<span class="campaign-name">Campaign</span>' +
+      '<span class="campaign-metric">Cost</span>' +
+      '<span class="campaign-metric">Revenue</span>' +
+      '<span class="campaign-metric roas">ROAS</span>' +
+    '</div>' +
+    rows + toggleHtml +
+  '</div>';
+}
+
+function toggleRows(group, btn) {
+  const rows = document.querySelectorAll('[data-group="' + group + '"]');
+  const hidden = rows[rows.length - 1].style.display === 'none';
+  rows.forEach((r, i) => { if (i >= 8) r.style.display = hidden ? 'flex' : 'none'; });
+  btn.textContent = hidden ? 'Show less' : 'Show ' + (rows.length - 8) + ' more';
+}
+
+function manualRefresh() {
+  const btn = document.getElementById('refresh-btn');
+  btn.textContent = 'Refreshing...';
+  btn.classList.add('loading');
+  fetch('/api/refresh', { method: 'POST' })
+    .then(() => {
+      setTimeout(() => { window.location.reload(); }, 30000);
+      btn.textContent = 'Reloading in 30s...';
+    })
+    .catch(() => { btn.textContent = 'Error'; btn.classList.remove('loading'); });
+}
+
+// Auto-reload page every hour to pick up fresh data
+setTimeout(() => window.location.reload(), 3600000);
+
+document.getElementById('happy').innerHTML = (data.happy || []).map(renderCard).join('');
+document.getElementById('upscale').innerHTML = (data.upscale || []).map(renderCard).join('');
+</script>
+</body>
+</html>

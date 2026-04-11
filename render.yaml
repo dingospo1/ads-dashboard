@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: ads-dashboard
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 2 --preload
+    plan: free
+    envVars:
+      - key: HAPPY_CLIENT_ID
+        sync: false
+      - key: HAPPY_CLIENT_SECRET
+        sync: false
+      - key: HAPPY_REFRESH_TOKEN
+        sync: false
+      - key: UPSCALE_SERVICE_ACCOUNT_JSON
+        sync: false
+      - key: GOOGLE_ADS_DEVELOPER_TOKEN
+        sync: false
+      - key: REFRESH_INTERVAL_MINUTES
+        value: "60"
+      - key: PYTHON_VERSION
+        value: "3.12.0"
