@@ -133,6 +133,9 @@ select.ctrl:focus { outline: none; border-color: #34d399; }
 .modal-date-label { font-size: 11px; color: #6b7280; margin-bottom: 14px; }
 .kpi-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 22px; }
 .kpi-box { background: #1a1d27; border: 1px solid #2a2d3a; border-radius: 8px; padding: 12px 14px; }
+.kpi-box-sortable { cursor: pointer; transition: border-color 0.15s; }
+.kpi-box-sortable:hover { border-color: #4b5563; }
+.kpi-box-active { border-color: #34d399 !important; }
 .kpi-label { font-size: 10px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
 .kpi-value { font-size: 20px; font-weight: 700; }
 .kpi-delta { font-size: 11px; margin-top: 2px; }
@@ -657,6 +660,7 @@ let modal = {
   customStart: '', customEnd: '',
   compareMode: 'period',
   campFilter: 'active',
+  sortCol: 'cost', sortDir: 'desc',
   data: null, cmpData: null
 };
 
@@ -673,6 +677,7 @@ function openDeeperDive(accountName, mccKey) {
   modal.customEnd = '';
   modal.compareMode = 'period';
   modal.campFilter = 'active';
+  modal.sortCol = 'cost'; modal.sortDir = 'desc';
   modal.data = null; modal.cmpData = null;
 
   document.getElementById('modal-range').value = 'days-7';
@@ -713,6 +718,25 @@ function changeModalCompare(val) {
 
 function changeModalCampFilter(val) {
   modal.campFilter = val;
+  renderDeeperDive();
+}
+
+// KPI field → campaign row field name
+const KPI_FIELD = {
+  'Cost': 'cost', 'Revenue': 'revenue', 'ROAS': 'roas',
+  'Conversions': 'conversions', 'Conv. Rate': 'convRate',
+  'CPC': 'cpc', 'CTR': 'ctr', 'Impr. Share': 'impressionShare', 'AOV': 'aov'
+};
+
+function sortDeeperBy(label) {
+  const field = KPI_FIELD[label];
+  if (!field) return;
+  if (modal.sortCol === field) {
+    modal.sortDir = modal.sortDir === 'desc' ? 'asc' : 'desc';
+  } else {
+    modal.sortCol = field;
+    modal.sortDir = 'desc';
+  }
   renderDeeperDive();
 }
 
@@ -791,10 +815,16 @@ function renderDeeperDive() {
     { label: 'Impr. Share', value: d.impressionShare > 0 ? fmtPct(d.impressionShare) : 'N/A', color: '#e1e4e8', delta: d.impressionShare>0 && cmp ? kpiDelta(d.impressionShare, cmp.impressionShare, false) : '' },
     { label: 'AOV', value: d.aov > 0 ? fmt(d.aov) : 'N/A', color: '#e1e4e8', delta: d.aov>0 && cmp ? kpiDelta(d.aov, cmp.aov, false) : '' },
   ];
-  const kpiHtml = kpis.map(k =>
-    '<div class="kpi-box"><div class="kpi-label">' + k.label + '</div>' +
-    '<div class="kpi-value" style="color:' + k.color + '">' + k.value + '</div>' + k.delta + '</div>'
-  ).join('');
+  const kpiHtml = kpis.map(k => {
+    const field = KPI_FIELD[k.label];
+    const isActive = field && modal.sortCol === field;
+    const arrow = isActive ? (modal.sortDir === 'desc' ? ' &#9660;' : ' &#9650;') : '';
+    const clickable = field ? ' kpi-box-sortable' + (isActive ? ' kpi-box-active' : '') : '';
+    const onclick = field ? ' onclick="sortDeeperBy(\'' + k.label + '\')"' : '';
+    return '<div class="kpi-box' + clickable + '"' + onclick + '>' +
+      '<div class="kpi-label">' + k.label + arrow + '</div>' +
+      '<div class="kpi-value" style="color:' + k.color + '">' + k.value + '</div>' + k.delta + '</div>';
+  }).join('');
 
   // Campaigns table
   let campHtml = '';
@@ -811,6 +841,9 @@ function renderDeeperDive() {
       if (modal.campFilter === 'active') return c.campaignStatus === 'ENABLED';
       if (modal.campFilter === 'paused') return c.campaignStatus === 'PAUSED';
       return true;
+    }).sort((a, b) => {
+      const v = modal.sortDir === 'desc' ? b[modal.sortCol] - a[modal.sortCol] : a[modal.sortCol] - b[modal.sortCol];
+      return v;
     });
     const campRows = filteredCamps.map(c => {
       const cc = findCmp(c.name);
