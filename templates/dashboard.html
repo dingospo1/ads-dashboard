@@ -228,7 +228,7 @@ function renderCard(account, mccKey) {
     ? '<button class="toggle-btn" onclick="toggleRows(\'' + id + '\', this)">Show ' + (campaigns.length - maxShow) + ' more</button>' : '';
 
   const adsUrl = account.accountId
-    ? 'https://ads.google.com/aw/overview?ocid=' + account.accountId.replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3')
+    ? 'https://ads.google.com/aw/campaigns?ocid=' + account.accountId
     : '#';
 
   return '<div class="card" data-card-id="' + id + '">' +
