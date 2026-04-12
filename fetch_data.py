@@ -36,6 +36,24 @@ MCCS = {
     },
 }
 
+# Manual Merchant Center ID overrides.
+# Set MERCHANT_ID_MAP in Render as a JSON string, e.g.:
+#   {"1234567890": 987654321, "0987654321": 111222333}
+# Keys are Google Ads account IDs (strings), values are MC account IDs (integers).
+# These are used as fallback when auto-discovery from Shopping campaign settings gives 0.
+def _load_merchant_id_map():
+    raw = os.environ.get("MERCHANT_ID_MAP", "")
+    if not raw:
+        return {}
+    try:
+        data = json.loads(raw)
+        return {str(k): int(v) for k, v in data.items()}
+    except Exception as e:
+        logger.warning("Failed to parse MERCHANT_ID_MAP: %s", e)
+        return {}
+
+MERCHANT_ID_MAP = _load_merchant_id_map()
+
 # Optional display-name overrides — only used when the API returns an empty descriptiveName.
 # The API's real descriptiveName always takes priority.
 ACCOUNT_NAMES = {
@@ -657,14 +675,15 @@ def fetch_all_mc_status(cached_data: dict) -> dict:
             continue
 
         for acc in accounts:
-            mid = acc.get("merchantId", 0)
+            acc_id = str(acc.get("accountId", ""))
+            mid = acc.get("merchantId", 0) or MERCHANT_ID_MAP.get(acc_id, 0)
             entry = {
                 "name": acc["name"],
                 "merchantId": mid,
-                "accountId": acc.get("accountId", ""),
+                "accountId": acc_id,
             }
             if not mid:
-                entry["error"] = "No Merchant Center linked"
+                entry["error"] = "No Merchant Center linked. Add this account's MC ID to MERCHANT_ID_MAP in Render env vars."
             else:
                 status = fetch_mc_status(mid, token)
                 entry.update(status)

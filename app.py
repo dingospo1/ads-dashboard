@@ -13,7 +13,7 @@ from flask import Flask, render_template, jsonify, request
 from fetch_data import (
     fetch_all, fetch_all_for_range, fetch_deeper, compute_date_range,
     fetch_all_mc_status, fetch_segment, get_token, list_child_accounts,
-    MCCS, SEGMENT_FIELDS
+    MCCS, SEGMENT_FIELDS, MERCHANT_ID_MAP
 )
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -233,6 +233,33 @@ def api_mc_status():
     except Exception as e:
         logger.error("MC status fetch failed: %s", e)
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/mc-debug")
+def api_mc_debug():
+    """Debug: show auto-discovered and manually configured merchant IDs per account."""
+    with _lock:
+        cached = _data.get(("rolling", 7)) or next(iter(_data.values()), None)
+    if not cached:
+        return jsonify({"error": "No cached data yet."}), 503
+
+    rows = []
+    for mcc_key in ["happy", "upscale"]:
+        for acc in cached.get(mcc_key, []):
+            acc_id = str(acc.get("accountId", ""))
+            auto_mid = acc.get("merchantId", 0)
+            map_mid = MERCHANT_ID_MAP.get(acc_id, 0)
+            effective_mid = auto_mid or map_mid
+            rows.append({
+                "mcc": mcc_key,
+                "name": acc["name"],
+                "accountId": acc_id,
+                "autoDiscoveredMerchantId": auto_mid,
+                "mappedMerchantId": map_mid,
+                "effectiveMerchantId": effective_mid,
+                "source": "auto" if auto_mid else ("map" if map_mid else "none"),
+            })
+    return jsonify(rows)
 
 
 @app.route("/api/deeper-segment")
