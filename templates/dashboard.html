@@ -195,7 +195,7 @@ select.ctrl:focus { outline: none; border-color: #34d399; }
   <div class="stat-box"><div class="stat-value" style="color:#34d399" id="s-accounts">{{ num_accounts }}</div><div class="stat-label">Accounts</div></div>
   <div class="stat-box"><div class="stat-value" id="s-cost">${{ "{:,.0f}".format(total_cost) }}</div><div class="stat-label">Cost</div><div class="stat-delta" id="sd-cost"></div></div>
   <div class="stat-box"><div class="stat-value" style="color:#34d399" id="s-rev">${{ "{:,.0f}".format(total_revenue) }}</div><div class="stat-label">Revenue</div><div class="stat-delta" id="sd-rev"></div></div>
-  <div class="stat-box"><div class="stat-value" style="color:#34d399" id="s-roas">{{ total_roas }}x</div><div class="stat-label">Blended ROAS</div><div class="stat-delta" id="sd-roas"></div></div>
+  <div class="stat-box"><div class="stat-value" style="color:#34d399" id="s-roas">{{ (total_roas * 100)|int }}%</div><div class="stat-label">Blended ROAS</div><div class="stat-delta" id="sd-roas"></div></div>
   <div class="stat-box"><div class="stat-value" style="color:#9ca3af">{{ num_campaigns }}</div><div class="stat-label">Campaigns</div></div>
 </div>
 
@@ -293,6 +293,7 @@ let deeperChart = null;
 function fmt(n) { return '$' + n.toLocaleString('en-US', {maximumFractionDigits:0}); }
 function fmtDec(n) { return '$' + n.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}); }
 function fmtPct(n) { return n.toFixed(1) + '%'; }
+function fmtRoas(r) { return Math.round(r * 100) + '%'; }
 
 function getTargetRoas(name) {
   const v = localStorage.getItem('troas_' + name);
@@ -387,7 +388,7 @@ function renderCard(account, mccKey) {
       '<div class="campaign-name"><span class="status-dot ' + statusDot(c.status) + '"></span>' + c.name + '</div>' +
       '<div class="campaign-metric">' + fmtDec(c.cost) + cCostD + '</div>' +
       '<div class="campaign-metric">' + fmtDec(c.revenue) + cRevD + '</div>' +
-      '<div class="campaign-metric roas roas-' + roasClass(c.roas, target) + '">' + c.roas.toFixed(2) + 'x' + cRoasD + '</div>' +
+      '<div class="campaign-metric roas roas-' + roasClass(c.roas, target) + '">' + fmtRoas(c.roas) + cRoasD + '</div>' +
     '</div>';
   }).join('');
 
@@ -399,19 +400,19 @@ function renderCard(account, mccKey) {
   return '<div class="card" data-card-id="' + id + '">' +
     '<div class="card-header">' +
       '<h2>' + account.name + '</h2>' +
-      '<span class="badge badge-' + rc + '">' + account.totalRoas.toFixed(2) + 'x ROAS' + badgeRoasDelta + '</span>' +
+      '<span class="badge badge-' + rc + '">' + fmtRoas(account.totalRoas) + ' ROAS' + badgeRoasDelta + '</span>' +
     '</div>' +
     '<div class="card-links">' + linksHtml + '</div>' +
-    '<div class="target-roas-row">' +
-      '<span class="target-roas-label">Target ROAS</span>' +
-      '<input class="target-roas-input" type="number" step="0.1" min="0" value="' + target.toFixed(1) + '" onchange="updateTargetRoas(\'' + account.name.replace(/'/g,"\\x27") + '\', this)" />' +
-      '<span class="target-roas-hint">x &nbsp;&mdash; colours update on change</span>' +
-    '</div>' +
     '<div class="account-summary">' +
       '<div class="account-stat">Cost<span>' + fmt(account.totalCost) + '</span>' + costDelta + '</div>' +
       '<div class="account-stat">Revenue<span style="color:#34d399">' + fmt(account.totalRevenue) + '</span>' + revDelta + '</div>' +
-      '<div class="account-stat">ROAS<span>' + account.totalRoas.toFixed(2) + 'x</span>' + roasDelta + '</div>' +
-      '<div class="account-stat">Campaigns<span>' + account.campaigns.filter(c=>c.campaignStatus==="ENABLED").length + '</span></div>' +
+      '<div class="account-stat">ROAS<span style="color:' + (rc==='green'?'#34d399':rc==='yellow'?'#fbbf24':'#f87171') + '">' + fmtRoas(account.totalRoas) + '</span>' + roasDelta +
+        '<div style="display:flex;align-items:center;gap:3px;margin-top:4px">' +
+          '<span style="font-size:10px;color:#6b7280">Target</span>' +
+          '<input class="target-roas-input" type="number" step="10" min="0" value="' + Math.round(target * 100) + '" onchange="updateTargetRoas(\'' + account.name.replace(/'/g,"\\x27") + '\', this)" />' +
+          '<span style="font-size:10px;color:#6b7280">%</span>' +
+        '</div>' +
+      '</div>' +
     '</div>' +
     '<div class="col-header">' +
       '<span class="campaign-name">Campaign</span>' +
@@ -446,7 +447,7 @@ function updateSummary() {
   document.getElementById('s-accounts').textContent = accs.length;
   document.getElementById('s-cost').textContent = '$' + tc.toLocaleString('en-US', {maximumFractionDigits:0});
   document.getElementById('s-rev').textContent = '$' + tr.toLocaleString('en-US', {maximumFractionDigits:0});
-  document.getElementById('s-roas').textContent = roas.toFixed(2) + 'x';
+  document.getElementById('s-roas').textContent = fmtRoas(roas);
 
   if (compareData) {
     const cmpAccs = activeTab === 'upscale' ? (compareData.upscale||[]) : (compareData.happy||[]);
@@ -529,7 +530,7 @@ function setCampFilter(val) {
 function updateTargetRoas(name, input) {
   const val = parseFloat(input.value);
   if (!isNaN(val) && val >= 0) {
-    setTargetRoas(name, val);
+    setTargetRoas(name, val / 100); // store as multiplier
     renderAll();
   }
 }
@@ -646,10 +647,10 @@ function renderDeeperDive(d, accountName) {
   const roasColor = roasCls === 'green' ? '#34d399' : roasCls === 'yellow' ? '#fbbf24' : '#f87171';
 
   const kpis = [
-    { label: 'Target ROAS', value: target.toFixed(1) + 'x', color: '#9ca3af', extra: 'editable above' },
+    { label: 'Target ROAS', value: Math.round(target * 100) + '%', color: '#9ca3af' },
     { label: 'Cost', value: fmt(d.totalCost), color: '#e1e4e8' },
     { label: 'Revenue', value: fmt(d.totalRevenue), color: '#34d399' },
-    { label: 'ROAS', value: d.totalRoas.toFixed(2) + 'x', color: roasColor },
+    { label: 'ROAS', value: fmtRoas(d.totalRoas), color: roasColor },
     { label: 'Conversions', value: d.totalConversions.toFixed(1), color: '#e1e4e8' },
     { label: 'Conv. Rate', value: fmtPct(d.convRate), color: '#e1e4e8' },
     { label: 'CPC', value: fmtDec(d.cpc), color: '#e1e4e8' },
@@ -670,7 +671,7 @@ function renderDeeperDive(d, accountName) {
   if (d.products && d.products.length > 0) {
     const rows = d.products.map(p =>
       '<tr><td>' + p.name + '</td><td>' + fmtDec(p.cost) + '</td><td>' + fmtDec(p.revenue) + '</td>' +
-      '<td style="color:' + (p.roas >= target ? '#34d399' : p.roas >= target*0.7 ? '#fbbf24' : '#f87171') + '">' + p.roas.toFixed(2) + 'x</td>' +
+      '<td style="color:' + (p.roas >= target ? '#34d399' : p.roas >= target*0.7 ? '#fbbf24' : '#f87171') + '">' + fmtRoas(p.roas) + '</td>' +
       '<td>' + p.conversions.toFixed(1) + '</td><td>' + fmtDec(p.cpc) + '</td>' +
       '<td>' + fmtPct(p.ctr) + '</td><td>' + fmtDec(p.aov) + '</td></tr>'
     ).join('');
@@ -718,7 +719,7 @@ function renderDeeperDive(d, accountName) {
         scales: {
           x: { ticks: { color: '#6b7280', font: { size: 10 } }, grid: { color: 'rgba(42,45,58,0.5)' } },
           y: { ticks: { color: '#6b7280', font: { size: 10 }, callback: v => '$'+v.toLocaleString() }, grid: { color: 'rgba(42,45,58,0.5)' }, position: 'left' },
-          y2: { ticks: { color: '#fbbf24', font: { size: 10 }, callback: v => v.toFixed(1)+'x' }, grid: { display: false }, position: 'right' }
+          y2: { ticks: { color: '#fbbf24', font: { size: 10 }, callback: v => Math.round(v*100)+'%' }, grid: { display: false }, position: 'right' }
         }
       }
     });
