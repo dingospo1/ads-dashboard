@@ -368,12 +368,12 @@ function renderCard(account, mccKey) {
   const adsUrl = account.accountId
     ? 'https://ads.google.com/aw/campaigns?ocid=' + account.accountId
     : '#';
-  const mcUrl = meta.mc ? 'https://merchants.google.com/mc/overview?a=' + meta.mc : '';
+  const mcUrl = meta.mc ? 'https://merchants.google.com/mc/overview?a=' + meta.mc : 'https://merchants.google.com/';
   const webUrl = meta.website || '';
 
   // Links row
   let linksHtml = '<a href="' + adsUrl + '" target="_blank" class="card-link">Go to account &#8599;</a>';
-  if (mcUrl) linksHtml += '<a href="' + mcUrl + '" target="_blank" class="card-link">Merchant Center &#8599;</a>';
+  linksHtml += '<a href="' + mcUrl + '" target="_blank" class="card-link">Merchant Center &#8599;</a>';
   if (webUrl) linksHtml += '<a href="' + webUrl + '" target="_blank" class="card-link">Website &#8599;</a>';
 
   // Campaign rows
