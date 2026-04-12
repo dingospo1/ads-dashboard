@@ -463,21 +463,24 @@ const UPSCALE_NAMES = ['value canvas prints'];
 // Accounts to always block regardless of MCC
 const BLOCKED_NAMES = ['pixalot','meloqdevices','exceptionalfire','nativemed','unboundminds','centro inca','bm ireland','babydoc','globber','baldcut','beaulares'];
 
-// Static fallback — used by MC tab when rawData is empty (e.g. API quota exhausted)
+// Static fallback — used when rawData is empty (e.g. API quota exhausted on startup)
+function _blankAccount(accountId, name, mcc) {
+  return { accountId, name, mcc, totalCost: 0, totalRevenue: 0, totalRoas: 0, totalConversions: 0, merchantId: 0, campaigns: [] };
+}
 const STATIC_HAPPY = [
-  { accountId: '8804096601', name: 'ByAnavrin',             mcc: 'Happy Mondays' },
-  { accountId: '3456762782', name: 'Aromely',               mcc: 'Happy Mondays' },
-  { accountId: '5525863856', name: "Don's Liquors",         mcc: 'Happy Mondays' },
-  { accountId: '2614199584', name: 'Home Teeth Whitening',  mcc: 'Happy Mondays' },
-  { accountId: '1850620188', name: 'Lucky Honey',           mcc: 'Happy Mondays' },
-  { accountId: '9222479033', name: 'Plum Play UK',          mcc: 'Happy Mondays' },
-  { accountId: '6248452745', name: 'Vintage Muscle',        mcc: 'Happy Mondays' },
-  { accountId: '6078059992', name: 'Warrior Willpower',     mcc: 'Happy Mondays' },
+  _blankAccount('8804096601', 'ByAnavrin',            'Happy Mondays'),
+  _blankAccount('3456762782', 'Aromely',              'Happy Mondays'),
+  _blankAccount('5525863856', "Don's Liquors",        'Happy Mondays'),
+  _blankAccount('2614199584', 'Home Teeth Whitening', 'Happy Mondays'),
+  _blankAccount('1850620188', 'Lucky Honey',          'Happy Mondays'),
+  _blankAccount('9222479033', 'Plum Play UK',         'Happy Mondays'),
+  _blankAccount('6248452745', 'Vintage Muscle',       'Happy Mondays'),
+  _blankAccount('6078059992', 'Warrior Willpower',    'Happy Mondays'),
 ];
 const STATIC_UPSCALE = [
-  { accountId: '4999947870', name: 'All Cars Fix', mcc: 'Upscale' },
-  { accountId: '8045249572', name: 'SilverAnt',    mcc: 'Upscale' },
-  { accountId: '6812459700', name: 'HGV Direct',   mcc: 'Upscale' },
+  _blankAccount('4999947870', 'All Cars Fix', 'Upscale'),
+  _blankAccount('8045249572', 'SilverAnt',    'Upscale'),
+  _blankAccount('6812459700', 'HGV Direct',   'Upscale'),
 ];
 
 function isBlocked(a) { const n = (a.name||'').toLowerCase().replace(/\s/g,''); return BLOCKED_NAMES.some(b => n.includes(b.replace(/\s/g,''))); }
@@ -871,8 +874,8 @@ function loadMcTab() {
   const liveHappy   = happyAccounts.map(a => ({ name: a.name, accountId: a.accountId, merchantId: a.merchantId || 0, mcc: 'Happy Mondays' }));
   const liveUpscale = upscaleAccounts.map(a => ({ name: a.name, accountId: a.accountId, merchantId: a.merchantId || 0, mcc: 'Upscale' }));
   const baseAccounts = [
-    ...(liveHappy.length   ? liveHappy   : STATIC_HAPPY.map(a => ({ ...a, merchantId: 0 }))),
-    ...(liveUpscale.length ? liveUpscale : STATIC_UPSCALE.map(a => ({ ...a, merchantId: 0 }))),
+    ...(liveHappy.length   ? liveHappy   : STATIC_HAPPY.map(a => ({ name: a.name, accountId: a.accountId, merchantId: 0, mcc: a.mcc }))),
+    ...(liveUpscale.length ? liveUpscale : STATIC_UPSCALE.map(a => ({ name: a.name, accountId: a.accountId, merchantId: 0, mcc: a.mcc }))),
   ];
 
   // Show accounts immediately with loading state, then overlay MC status
