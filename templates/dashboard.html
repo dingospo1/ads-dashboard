@@ -128,16 +128,19 @@ select.ctrl:focus { outline: none; border-color: #34d399; }
 .modal-controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .modal-loading { text-align: center; color: #6b7280; padding: 60px 0; font-size: 14px; }
 .modal-date-label { font-size: 11px; color: #6b7280; margin-bottom: 14px; }
-.kpi-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 22px; }
-.kpi-box { background: #1a1d27; border: 1px solid #2a2d3a; border-radius: 8px; padding: 12px 14px; }
-.kpi-box-sortable { cursor: pointer; transition: border-color 0.15s; }
-.kpi-box-sortable:hover { border-color: #4b5563; }
-.kpi-box-active { border-color: #34d399 !important; }
-.kpi-label { font-size: 10px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
-.kpi-value { font-size: 20px; font-weight: 700; }
+.kpi-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 16px; }
+.kpi-box { background: #1a1d27; border: 1px solid #2a2d3a; border-radius: 8px; padding: 11px 13px; cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s; user-select: none; }
+.kpi-box:hover { border-color: #4b5563; }
+.kpi-box.chart-on { box-shadow: 0 0 0 1px var(--kpi-color, #34d399); }
+.kpi-box.chart-on .kpi-label { color: var(--kpi-color, #34d399); }
+.kpi-label { font-size: 10px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; display: flex; align-items: center; gap: 5px; transition: color 0.15s; }
+.kpi-label-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.kpi-value { font-size: 19px; font-weight: 700; }
 .kpi-delta { font-size: 11px; margin-top: 2px; }
-.chart-wrap { background: #1a1d27; border: 1px solid #2a2d3a; border-radius: 8px; padding: 16px; margin-bottom: 22px; }
-.chart-wrap canvas { max-height: 200px; }
+.chart-wrap { background: #1a1d27; border: 1px solid #2a2d3a; border-radius: 8px; padding: 16px 16px 10px; margin-bottom: 22px; height: 290px; position: relative; }
+.chart-wrap canvas { width: 100% !important; height: 100% !important; }
+.th-sort { cursor: pointer; user-select: none; white-space: nowrap; }
+.th-sort:hover { color: #e1e4e8; }
 .modal-section-title { font-size: 12px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 10px; }
 .data-table-wrap { overflow-x: auto; margin-bottom: 24px; }
 .data-table { width: 100%; border-collapse: collapse; font-size: 12px; }
@@ -322,6 +325,41 @@ let compareData = null;
 let activeTab = 'happy';
 let campFilter = 'active'; // 'active','paused','all'
 let deeperChart = null;
+
+/* ============================================================
+   CHART KPI CONFIG
+   ============================================================ */
+const CHART_KPIS = [
+  { key:'revenue',     label:'Revenue',     color:'#34d399', type:'dollar'  },
+  { key:'cost',        label:'Cost',        color:'#f87171', type:'dollar'  },
+  { key:'roas',        label:'ROAS',        color:'#fbbf24', type:'roaspct' },
+  { key:'conversions', label:'Conversions', color:'#a78bfa', type:'num'     },
+  { key:'clicks',      label:'Clicks',      color:'#60a5fa', type:'num'     },
+  { key:'ctr',         label:'CTR',         color:'#818cf8', type:'pct'     },
+  { key:'cpc',         label:'CPC',         color:'#fb923c', type:'dollar2' },
+  { key:'convRate',    label:'Conv. Rate',  color:'#2dd4bf', type:'pct'     },
+  { key:'aov',         label:'AOV',         color:'#e879f9', type:'dollar'  },
+  { key:'impressions', label:'Impressions', color:'#94a3b8', type:'bignum'  },
+];
+
+// Y-axis tick formatters
+const AXIS_FMT = {
+  dollar:  v => '$'+(v>=1000?(v/1000).toFixed(0)+'k':Math.round(v).toLocaleString()),
+  dollar2: v => '$'+v.toFixed(2),
+  roaspct: v => Math.round(v*100)+'%',
+  pct:     v => v.toFixed(1)+'%',
+  num:     v => v%1===0?v.toLocaleString():v.toFixed(1),
+  bignum:  v => v>=1e6?(v/1e6).toFixed(1)+'M':v>=1000?(v/1000).toFixed(0)+'k':Math.round(v),
+};
+// Tooltip formatters
+const TIP_FMT = {
+  dollar:  v => '$'+v.toLocaleString('en-US',{maximumFractionDigits:0}),
+  dollar2: v => '$'+v.toFixed(2),
+  roaspct: v => Math.round(v*100)+'%',
+  pct:     v => v.toFixed(2)+'%',
+  num:     v => v.toFixed(1),
+  bignum:  v => Math.round(v).toLocaleString(),
+};
 
 /* ============================================================
    HELPERS
@@ -651,6 +689,8 @@ let modal = {
   compareMode: 'period',
   campFilter: 'active',
   sortCol: 'cost', sortDir: 'desc',
+  chartKPIs: ['revenue'],
+  campShowAll: false,
   data: null, cmpData: null
 };
 
@@ -668,6 +708,8 @@ function openDeeperDive(accountName, mccKey) {
   modal.compareMode = 'period';
   modal.campFilter = 'active';
   modal.sortCol = 'cost'; modal.sortDir = 'desc';
+  modal.chartKPIs = ['revenue'];
+  modal.campShowAll = false;
   modal.data = null; modal.cmpData = null;
 
   document.getElementById('modal-range').value = 'days-7';
@@ -706,28 +748,49 @@ function changeModalCompare(val) {
   fetchDeeperCompare();
 }
 
-function changeModalCampFilter(val) {
-  modal.campFilter = val;
-  renderDeeperDive();
-}
-
-// KPI field → campaign row field name
-const KPI_FIELD = {
-  'Cost': 'cost', 'Revenue': 'revenue', 'ROAS': 'roas',
-  'Conversions': 'conversions', 'Conv. Rate': 'convRate',
-  'CPC': 'cpc', 'CTR': 'ctr', 'Impr. Share': 'impressionShare', 'AOV': 'aov'
-};
-
-function sortDeeperBy(label) {
-  const field = KPI_FIELD[label];
-  if (!field) return;
+function sortDeeperCol(field) {
   if (modal.sortCol === field) {
     modal.sortDir = modal.sortDir === 'desc' ? 'asc' : 'desc';
   } else {
     modal.sortCol = field;
     modal.sortDir = 'desc';
   }
-  renderDeeperDive();
+  refreshCampSection();
+}
+
+function toggleChartKPI(key) {
+  const idx = modal.chartKPIs.indexOf(key);
+  if (idx === -1) {
+    modal.chartKPIs.push(key);
+  } else {
+    if (modal.chartKPIs.length === 1) return; // keep at least one
+    modal.chartKPIs.splice(idx, 1);
+  }
+  refreshKpiAndChart();
+}
+
+// Targeted refresh — KPI boxes + chart only (no scroll jump)
+function refreshKpiAndChart() {
+  const grid = document.getElementById('modal-kpi-grid');
+  if (grid) grid.innerHTML = buildKpiGridHtml(modal.data, modal.cmpData);
+  buildDeeperChart(modal.data);
+}
+
+// Targeted refresh — campaigns table only (no scroll jump)
+function refreshCampSection() {
+  const el = document.getElementById('modal-camp-section');
+  if (el) el.innerHTML = buildCampHtml(modal.data, modal.cmpData);
+}
+
+function showAllModalCamps() {
+  modal.campShowAll = true;
+  refreshCampSection();
+}
+
+function changeModalCampFilter(val) {
+  modal.campFilter = val;
+  modal.campShowAll = false;
+  refreshCampSection();
 }
 
 function deeperUrl(days, rangeType, customStart, customEnd) {
@@ -776,15 +839,21 @@ function fetchDeeperCompare() {
     .catch(() => { modal.cmpData = null; renderDeeperDive(); });
 }
 
-function renderDeeperDive() {
-  const d = modal.data;
-  if (!d) return;
-  const cmp = modal.cmpData;
+/* ------ helpers shared across sub-renders ------ */
+function augmentDaily(daily) {
+  return (daily || []).map(x => ({
+    ...x,
+    ctr:      x.impressions > 0 ? x.clicks / x.impressions * 100 : 0,
+    cpc:      x.clicks > 0 ? x.cost / x.clicks : 0,
+    convRate: x.clicks > 0 ? x.conversions / x.clicks * 100 : 0,
+    aov:      x.conversions > 0 ? x.revenue / x.conversions : 0,
+  }));
+}
+
+function buildKpiGridHtml(d, cmp) {
   const target = getTargetRoas(modal.account);
   const roasCls = roasClass(d.totalRoas, target);
-  const roasColor = roasCls === 'green' ? '#34d399' : roasCls === 'yellow' ? '#fbbf24' : '#f87171';
-
-  // KPI helpers
+  const roasColor = roasCls==='green'?'#34d399':roasCls==='yellow'?'#fbbf24':'#f87171';
   function kpiDelta(curr, prev, invert) {
     if (!cmp || !prev) return '';
     const pct = (curr - prev) / prev * 100;
@@ -792,127 +861,186 @@ function renderDeeperDive() {
     const cls = invert ? (pct>0?'delta-cost-up':'delta-cost-down') : (pct>0?'delta-up':'delta-down');
     return '<div class="kpi-delta ' + cls + '">' + sign + pct.toFixed(1) + '%</div>';
   }
-
-  const kpis = [
-    { label: 'Target ROAS', value: Math.round(target * 100) + '%', color: '#9ca3af', delta: '' },
-    { label: 'Cost', value: fmt(d.totalCost), color: '#e1e4e8', delta: kpiDelta(d.totalCost, cmp&&cmp.totalCost, true) },
-    { label: 'Revenue', value: fmt(d.totalRevenue), color: '#34d399', delta: kpiDelta(d.totalRevenue, cmp&&cmp.totalRevenue, false) },
-    { label: 'ROAS', value: fmtRoas(d.totalRoas), color: roasColor, delta: kpiDelta(d.totalRoas, cmp&&cmp.totalRoas, false) },
-    { label: 'Conversions', value: d.totalConversions.toFixed(1), color: '#e1e4e8', delta: kpiDelta(d.totalConversions, cmp&&cmp.totalConversions, false) },
-    { label: 'Conv. Rate', value: fmtPct(d.convRate), color: '#e1e4e8', delta: kpiDelta(d.convRate, cmp&&cmp.convRate, false) },
-    { label: 'CPC', value: fmtDec(d.cpc), color: '#e1e4e8', delta: kpiDelta(d.cpc, cmp&&cmp.cpc, true) },
-    { label: 'CTR', value: fmtPct(d.ctr), color: '#e1e4e8', delta: kpiDelta(d.ctr, cmp&&cmp.ctr, false) },
-    { label: 'Impr. Share', value: d.impressionShare > 0 ? fmtPct(d.impressionShare) : 'N/A', color: '#e1e4e8', delta: d.impressionShare>0 && cmp ? kpiDelta(d.impressionShare, cmp.impressionShare, false) : '' },
-    { label: 'AOV', value: d.aov > 0 ? fmt(d.aov) : 'N/A', color: '#e1e4e8', delta: d.aov>0 && cmp ? kpiDelta(d.aov, cmp.aov, false) : '' },
+  const rows = [
+    { key:'',          label:'Target ROAS', value: Math.round(target*100)+'%',       color:'#9ca3af', delta:'' },
+    { key:'cost',      label:'Cost',        value: fmt(d.totalCost),                  color:'#e1e4e8', delta:kpiDelta(d.totalCost,cmp&&cmp.totalCost,true) },
+    { key:'revenue',   label:'Revenue',     value: fmt(d.totalRevenue),               color:'#e1e4e8', delta:kpiDelta(d.totalRevenue,cmp&&cmp.totalRevenue,false) },
+    { key:'roas',      label:'ROAS',        value: fmtRoas(d.totalRoas),              color:roasColor, delta:kpiDelta(d.totalRoas,cmp&&cmp.totalRoas,false) },
+    { key:'conversions',label:'Conversions',value: d.totalConversions.toFixed(1),    color:'#e1e4e8', delta:kpiDelta(d.totalConversions,cmp&&cmp.totalConversions,false) },
+    { key:'convRate',  label:'Conv. Rate',  value: fmtPct(d.convRate),               color:'#e1e4e8', delta:kpiDelta(d.convRate,cmp&&cmp.convRate,false) },
+    { key:'cpc',       label:'CPC',         value: fmtDec(d.cpc),                    color:'#e1e4e8', delta:kpiDelta(d.cpc,cmp&&cmp.cpc,true) },
+    { key:'ctr',       label:'CTR',         value: fmtPct(d.ctr),                    color:'#e1e4e8', delta:kpiDelta(d.ctr,cmp&&cmp.ctr,false) },
+    { key:'',          label:'Impr. Share', value: d.impressionShare>0?fmtPct(d.impressionShare):'N/A', color:'#e1e4e8', delta:d.impressionShare>0&&cmp?kpiDelta(d.impressionShare,cmp.impressionShare,false):'' },
+    { key:'aov',       label:'AOV',         value: d.aov>0?fmt(d.aov):'N/A',         color:'#e1e4e8', delta:d.aov>0&&cmp?kpiDelta(d.aov,cmp.aov,false):'' },
   ];
-  const kpiHtml = kpis.map(k => {
-    const field = KPI_FIELD[k.label];
-    const isActive = field && modal.sortCol === field;
-    const arrow = isActive ? (modal.sortDir === 'desc' ? ' &#9660;' : ' &#9650;') : '';
-    const clickable = field ? ' kpi-box-sortable' + (isActive ? ' kpi-box-active' : '') : '';
-    const onclick = field ? ' onclick="sortDeeperBy(\'' + k.label + '\')"' : '';
-    return '<div class="kpi-box' + clickable + '"' + onclick + '>' +
-      '<div class="kpi-label">' + k.label + arrow + '</div>' +
+  return rows.map(k => {
+    const ck = CHART_KPIS.find(c => c.key === k.key);
+    const isOn = ck && modal.chartKPIs.includes(ck.key);
+    const onclick = ck ? ' onclick="toggleChartKPI(\'' + ck.key + '\')"' : '';
+    const cls = 'kpi-box' + (isOn ? ' chart-on' : '');
+    const style = isOn ? ' style="--kpi-color:' + ck.color + ';border-color:' + ck.color + '"' : '';
+    const dot = isOn ? '<span class="kpi-label-dot" style="background:' + ck.color + '"></span>' : '';
+    return '<div class="' + cls + '"' + style + onclick + '>' +
+      '<div class="kpi-label">' + dot + k.label + '</div>' +
       '<div class="kpi-value" style="color:' + k.color + '">' + k.value + '</div>' + k.delta + '</div>';
   }).join('');
+}
 
-  // Campaigns table
-  let campHtml = '';
-  if (d.campaigns && d.campaigns.length > 0) {
-    const cmpCamps = (cmp && cmp.campaigns) ? cmp.campaigns : [];
-    function findCmp(name) { return cmpCamps.find(c=>c.name===name) || null; }
-    function td(val, cc, invert) {
-      if (!cc) return '<td>' + val + '</td>';
-      const pct = (parseFloat(val.replace(/[^0-9.-]/g,'')) - parseFloat(cc)) / Math.abs(parseFloat(cc)) * 100;
-      const sign = pct>=0?'+':''; const cls = invert?(pct>0?'delta-cost-up':'delta-cost-down'):(pct>0?'delta-up':'delta-down');
-      return '<td>' + val + '<div class="delta ' + cls + '" style="font-size:10px">' + sign + pct.toFixed(1) + '%</div></td>';
-    }
-    const filteredCamps = d.campaigns.filter(c => {
-      if (modal.campFilter === 'active') return c.campaignStatus === 'ENABLED';
-      if (modal.campFilter === 'paused') return c.campaignStatus === 'PAUSED';
-      return true;
-    }).sort((a, b) => {
-      const v = modal.sortDir === 'desc' ? b[modal.sortCol] - a[modal.sortCol] : a[modal.sortCol] - b[modal.sortCol];
-      return v;
-    });
-    const campRows = filteredCamps.map(c => {
-      const cc = findCmp(c.name);
-      const rc = roasClass(c.roas, target);
-      const roasCl = rc==='green'?'#34d399':rc==='yellow'?'#fbbf24':'#f87171';
-      const dotCl = c.status==='ELIGIBLE'?'dot-green':c.status==='LIMITED'?'dot-yellow':'dot-gray';
-      const campUrl = c.id && modal.accountId
-        ? 'https://ads.google.com/aw/campaigns?campaignId=' + c.id + '&ocid=' + modal.accountId
-        : null;
-      const campCell = campUrl
-        ? '<a href="' + campUrl + '" target="_blank" class="camp-link"><span class="status-dot ' + dotCl + '"></span>' + c.name + ' &#8599;</a>'
-        : '<span><span class="status-dot ' + dotCl + '"></span>' + c.name + '</span>';
-      return '<tr>' +
-        '<td>' + campCell + '</td>' +
-        '<td>' + (c.campaignStatus==='PAUSED'?'<span style="color:#6b7280">Paused</span>':'<span style="color:#34d399">Active</span>') + '</td>' +
-        td(fmtDec(c.cost), cc&&cc.cost, true) +
-        td(fmtDec(c.revenue), cc&&cc.revenue, false) +
-        '<td style="color:' + roasCl + '">' + fmtRoas(c.roas) + (cc?'<div class="delta ' + (c.roas>=cc.roas?'delta-up':'delta-down') + '" style="font-size:10px">' + (c.roas>=cc.roas?'+':'') + ((c.roas-cc.roas)/cc.roas*100).toFixed(1) + '%</div>':'') + '</td>' +
-        '<td>' + c.conversions.toFixed(1) + (cc?'<div class="delta ' + (c.conversions>=cc.conversions?'delta-up':'delta-down') + '" style="font-size:10px">' + (c.conversions>=cc.conversions?'+':'') + (cc.conversions?((c.conversions-cc.conversions)/cc.conversions*100).toFixed(1)+'%':'') + '</div>':'') + '</td>' +
-        '<td>' + fmtPct(c.convRate) + '</td>' +
-        '<td>' + fmtDec(c.cpc) + '</td>' +
-        '<td>' + fmtPct(c.ctr) + '</td>' +
-        '<td>' + (c.impressionShare > 0 ? fmtPct(c.impressionShare) : '—') + '</td>' +
-        '<td>' + (c.aov > 0 ? fmt(c.aov) : '—') + '</td>' +
-      '</tr>';
-    }).join('');
-    campHtml = '<div class="modal-section-title">Campaigns</div>' +
-      '<div class="data-table-wrap"><table class="data-table"><thead><tr>' +
-      '<th style="text-align:left">Campaign</th><th style="text-align:left">Status</th>' +
-      '<th>Cost</th><th>Revenue</th><th>ROAS</th><th>Conv.</th><th>Conv Rate</th><th>CPC</th><th>CTR</th><th>Impr Share</th><th>AOV</th>' +
-      '</tr></thead><tbody>' + campRows + '</tbody></table></div>';
+function buildCampHtml(d, cmp) {
+  if (!d || !d.campaigns || d.campaigns.length === 0) return '';
+  const target = getTargetRoas(modal.account);
+  const cmpCamps = (cmp && cmp.campaigns) ? cmp.campaigns : [];
+  function findCmp(name) { return cmpCamps.find(c=>c.name===name)||null; }
+  function td(val, cc, invert) {
+    if (!cc) return '<td>' + val + '</td>';
+    const pct = (parseFloat(String(val).replace(/[^0-9.-]/g,'')) - parseFloat(cc)) / Math.abs(parseFloat(cc)) * 100;
+    const sign = pct>=0?'+':'';
+    const cls = invert?(pct>0?'delta-cost-up':'delta-cost-down'):(pct>0?'delta-up':'delta-down');
+    return '<td>' + val + '<div class="delta ' + cls + '" style="font-size:10px">' + sign + pct.toFixed(1) + '%</div></td>';
   }
+  function thSort(label, field) {
+    const isActive = modal.sortCol === field;
+    const arrow = isActive ? (modal.sortDir==='desc'?' &#9660;':' &#9650;') : ' <span style="opacity:0.3">&#8597;</span>';
+    return '<th class="th-sort" onclick="sortDeeperCol(\'' + field + '\')" style="color:' + (isActive?'#e1e4e8':'#6b7280') + '">' + label + arrow + '</th>';
+  }
+  const MAX_CAMPS = 10;
+  const allCamps = d.campaigns.filter(c => {
+    if (modal.campFilter === 'active') return c.campaignStatus === 'ENABLED';
+    if (modal.campFilter === 'paused') return c.campaignStatus === 'PAUSED';
+    return true;
+  }).sort((a,b) => modal.sortDir==='desc' ? b[modal.sortCol]-a[modal.sortCol] : a[modal.sortCol]-b[modal.sortCol]);
+  const showAll = modal.campShowAll;
+  const visibleCamps = showAll ? allCamps : allCamps.slice(0, MAX_CAMPS);
+  const rows = visibleCamps.map(c => {
+    const cc = findCmp(c.name);
+    const rc = roasClass(c.roas, target);
+    const roasCl = rc==='green'?'#34d399':rc==='yellow'?'#fbbf24':'#f87171';
+    const dotCl = c.status==='ELIGIBLE'?'dot-green':c.status==='LIMITED'?'dot-yellow':'dot-gray';
+    const campUrl = c.id && modal.accountId
+      ? 'https://ads.google.com/aw/campaigns?campaignId='+c.id+'&ocid='+modal.accountId : null;
+    const campCell = campUrl
+      ? '<a href="'+campUrl+'" target="_blank" class="camp-link"><span class="status-dot '+dotCl+'"></span>'+c.name+' &#8599;</a>'
+      : '<span><span class="status-dot '+dotCl+'"></span>'+c.name+'</span>';
+    return '<tr>' +
+      '<td>'+campCell+'</td>' +
+      '<td>'+(c.campaignStatus==='PAUSED'?'<span style="color:#6b7280">Paused</span>':'<span style="color:#34d399">Active</span>')+'</td>' +
+      td(fmtDec(c.cost), cc&&cc.cost, true) +
+      td(fmtDec(c.revenue), cc&&cc.revenue, false) +
+      '<td style="color:'+roasCl+'">'+fmtRoas(c.roas)+(cc?'<div class="delta '+(c.roas>=cc.roas?'delta-up':'delta-down')+'" style="font-size:10px">'+(c.roas>=cc.roas?'+':'')+((c.roas-cc.roas)/cc.roas*100).toFixed(1)+'%</div>':'')+'</td>' +
+      '<td>'+c.conversions.toFixed(1)+(cc?'<div class="delta '+(c.conversions>=cc.conversions?'delta-up':'delta-down')+'" style="font-size:10px">'+(c.conversions>=cc.conversions?'+':'')+(cc.conversions?((c.conversions-cc.conversions)/cc.conversions*100).toFixed(1)+'%':'')+'</div>':'')+'</td>' +
+      '<td>'+fmtPct(c.convRate)+'</td>' +
+      '<td>'+fmtDec(c.cpc)+'</td>' +
+      '<td>'+fmtPct(c.ctr)+'</td>' +
+      '<td>'+(c.impressionShare>0?fmtPct(c.impressionShare):'—')+'</td>' +
+      '<td>'+(c.aov>0?fmt(c.aov):'—')+'</td>' +
+    '</tr>';
+  }).join('');
+  const moreBtn = (!showAll && allCamps.length > MAX_CAMPS)
+    ? '<button class="toggle-btn" onclick="showAllModalCamps()" style="margin-top:8px">Show ' + (allCamps.length - MAX_CAMPS) + ' more</button>' : '';
+  return '<div class="modal-section-title">Campaigns</div>' +
+    '<div class="data-table-wrap"><table class="data-table"><thead><tr>' +
+    '<th style="text-align:left">Campaign</th><th style="text-align:left">Status</th>' +
+    thSort('Cost','cost') + thSort('Revenue','revenue') + thSort('ROAS','roas') +
+    thSort('Conv.','conversions') + thSort('Conv Rate','convRate') +
+    thSort('CPC','cpc') + thSort('CTR','ctr') + thSort('Impr Share','impressionShare') + thSort('AOV','aov') +
+    '</tr></thead><tbody>' + rows + '</tbody></table></div>' + moreBtn;
+}
+
+function buildDeeperChart(d) {
+  if (deeperChart) { deeperChart.destroy(); deeperChart = null; }
+  const ctx = document.getElementById('deeper-chart');
+  if (!ctx || !d || !d.daily || d.daily.length === 0) return;
+  const daily = augmentDaily(d.daily);
+  const labels = daily.map(x => x.date.slice(5));
+  const selected = CHART_KPIS.filter(k => modal.chartKPIs.includes(k.key));
+  if (!selected.length) return;
+
+  // Assign axes: first type → left, second distinct type → right
+  const typeOrder = [];
+  selected.forEach(k => { if (!typeOrder.includes(k.type)) typeOrder.push(k.type); });
+  const leftType = typeOrder[0];
+  const rightType = typeOrder[1] || null;
+
+  const datasets = selected.map(k => ({
+    label: k.label,
+    data: daily.map(x => +(x[k.key]||0).toFixed(4)),
+    borderColor: k.color,
+    backgroundColor: k.color + '20',
+    borderWidth: 2.5,
+    pointRadius: daily.length <= 14 ? 4 : 2,
+    pointHoverRadius: 6,
+    pointBackgroundColor: k.color,
+    tension: 0.35,
+    fill: false,
+    yAxisID: (rightType && k.type === rightType) ? 'yR' : 'yL',
+  }));
+
+  const scales = {
+    x: { ticks:{color:'#6b7280',font:{size:10}}, grid:{color:'rgba(255,255,255,0.05)'}, border:{color:'#2a2d3a'} },
+    yL: { type:'linear', position:'left', ticks:{color:'#9ca3af',font:{size:10},callback:v=>AXIS_FMT[leftType](v)}, grid:{color:'rgba(255,255,255,0.05)'}, border:{color:'#2a2d3a'} },
+  };
+  if (rightType) {
+    scales.yR = { type:'linear', position:'right', ticks:{color:'#6b7280',font:{size:10},callback:v=>AXIS_FMT[rightType](v)}, grid:{display:false}, border:{color:'#2a2d3a'} };
+  }
+
+  deeperChart = new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      animation: { duration: 350, easing: 'easeInOutQuart' },
+      interaction: { mode:'index', intersect:false },
+      plugins: {
+        legend: {
+          display: selected.length > 1,
+          labels: { color:'#9ca3af', font:{size:11}, boxWidth:10, usePointStyle:true, pointStyle:'circle' },
+        },
+        tooltip: {
+          backgroundColor:'#1a1d27', borderColor:'#3a3d4a', borderWidth:1,
+          titleColor:'#e1e4e8', bodyColor:'#9ca3af', padding:10, caretSize:5,
+          callbacks: {
+            label: ctx => {
+              const k = CHART_KPIS.find(c=>c.label===ctx.dataset.label);
+              return ' ' + ctx.dataset.label + ': ' + (k ? TIP_FMT[k.type](ctx.raw) : ctx.raw);
+            }
+          }
+        }
+      },
+      scales,
+    }
+  });
+}
+
+function renderDeeperDive() {
+  const d = modal.data;
+  if (!d) return;
+  const cmp = modal.cmpData;
+  const target = getTargetRoas(modal.account);
 
   // Products table
   let prodHtml = '';
   if (d.products && d.products.length > 0) {
     const prodRows = d.products.map(p =>
-      '<tr><td>' + p.name + '</td><td>' + fmtDec(p.cost) + '</td><td>' + fmtDec(p.revenue) + '</td>' +
-      '<td style="color:' + (p.roas>=target?'#34d399':p.roas>=target*0.7?'#fbbf24':'#f87171') + '">' + fmtRoas(p.roas) + '</td>' +
-      '<td>' + p.conversions.toFixed(1) + '</td><td>' + fmtDec(p.cpc) + '</td>' +
-      '<td>' + fmtPct(p.ctr) + '</td><td>' + (p.aov>0?fmt(p.aov):'—') + '</td></tr>'
+      '<tr><td>'+p.name+'</td><td>'+fmtDec(p.cost)+'</td><td>'+fmtDec(p.revenue)+'</td>' +
+      '<td style="color:'+(p.roas>=target?'#34d399':p.roas>=target*0.7?'#fbbf24':'#f87171')+'">'+fmtRoas(p.roas)+'</td>' +
+      '<td>'+p.conversions.toFixed(1)+'</td><td>'+fmtDec(p.cpc)+'</td>' +
+      '<td>'+fmtPct(p.ctr)+'</td><td>'+(p.aov>0?fmt(p.aov):'—')+'</td></tr>'
     ).join('');
     prodHtml = '<div class="modal-section-title">Products</div>' +
       '<div class="data-table-wrap"><table class="data-table"><thead><tr>' +
       '<th style="text-align:left">Product</th><th>Cost</th><th>Revenue</th><th>ROAS</th><th>Conv.</th><th>CPC</th><th>CTR</th><th>AOV</th>' +
-      '</tr></thead><tbody>' + prodRows + '</tbody></table></div>';
+      '</tr></thead><tbody>'+prodRows+'</tbody></table></div>';
   }
 
   document.getElementById('modal-content').innerHTML =
-    '<div class="modal-date-label">' + d.startDate + ' &rarr; ' + d.endDate + (cmp ? ' &nbsp;&middot;&nbsp; vs ' + cmp.startDate + ' &rarr; ' + cmp.endDate : '') + '</div>' +
-    '<div class="kpi-grid">' + kpiHtml + '</div>' +
+    '<div class="modal-date-label">' + d.startDate + ' &rarr; ' + d.endDate +
+    (cmp ? ' &nbsp;&middot;&nbsp; vs ' + cmp.startDate + ' &rarr; ' + cmp.endDate : '') + '</div>' +
+    '<div id="modal-kpi-grid" class="kpi-grid">' + buildKpiGridHtml(d, cmp) + '</div>' +
     '<div class="chart-wrap"><canvas id="deeper-chart"></canvas></div>' +
-    campHtml + prodHtml;
+    '<div id="modal-camp-section">' + buildCampHtml(d, cmp) + '</div>' +
+    '<div id="modal-prod-section">' + prodHtml + '</div>';
 
-  // Chart
-  if (deeperChart) { deeperChart.destroy(); deeperChart = null; }
-  const ctx = document.getElementById('deeper-chart');
-  if (ctx && d.daily && d.daily.length > 0) {
-    const labels = d.daily.map(x => x.date.slice(5));
-    deeperChart = new Chart(ctx, {
-      data: {
-        labels,
-        datasets: [
-          { type:'bar', label:'Cost', data:d.daily.map(x=>x.cost), backgroundColor:'rgba(248,113,113,0.45)', borderColor:'#f87171', borderWidth:1, yAxisID:'y' },
-          { type:'bar', label:'Revenue', data:d.daily.map(x=>x.revenue), backgroundColor:'rgba(52,211,153,0.45)', borderColor:'#34d399', borderWidth:1, yAxisID:'y' },
-          { type:'line', label:'ROAS', data:d.daily.map(x=>Math.round(x.roas*100)), borderColor:'#fbbf24', backgroundColor:'transparent', borderWidth:2, pointRadius:2, tension:0.3, yAxisID:'y2' }
-        ]
-      },
-      options: {
-        responsive:true, maintainAspectRatio:false,
-        plugins:{ legend:{ labels:{ color:'#9ca3af', font:{size:11} } } },
-        scales:{
-          x:{ ticks:{color:'#6b7280',font:{size:10}}, grid:{color:'rgba(42,45,58,0.5)'} },
-          y:{ ticks:{color:'#6b7280',font:{size:10},callback:v=>'$'+v.toLocaleString()}, grid:{color:'rgba(42,45,58,0.5)'}, position:'left' },
-          y2:{ ticks:{color:'#fbbf24',font:{size:10},callback:v=>v+'%'}, grid:{display:false}, position:'right' }
-        }
-      }
-    });
-  }
+  buildDeeperChart(d);
 }
 
 /* ============================================================
