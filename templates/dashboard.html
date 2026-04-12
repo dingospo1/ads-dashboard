@@ -631,7 +631,7 @@ function renderCard(account, mccKey) {
     '<div class="card-header">' +
       '<div class="card-header-left">' +
         '<h2>' + account.name + '</h2>' +
-        '<button class="deeper-btn" onclick="openDeeperDive(\'' + safeName + '\', \'' + mccKey + '\')">&#128269; Deeper Dive</button>' +
+        '<button class="deeper-btn" onclick="openDeeperDive(\'' + safeName + '\', \'' + mccKey + '\', \'' + (account.accountId||'') + '\')">&#128269; Deeper Dive</button>' +
       '</div>' +
       '<div class="header-roas">' +
         '<div class="header-target">' +
@@ -957,13 +957,10 @@ let modal = {
   data: null, cmpData: null
 };
 
-function openDeeperDive(accountName, mccKey) {
+function openDeeperDive(accountName, mccKey, accountId) {
   modal.account = accountName;
   modal.mcc = mccKey;
-  // Find accountId for campaign links
-  const allAccs = [...happyAccounts, ...upscaleAccounts];
-  const acc = allAccs.find(a => a.name === accountName);
-  modal.accountId = acc ? acc.accountId : null;
+  modal.accountId = accountId || null;
   modal.days = 7;
   modal.rangeType = '';
   modal.customStart = '';
