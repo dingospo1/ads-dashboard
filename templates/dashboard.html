@@ -63,7 +63,7 @@ select.ctrl:focus { outline: none; border-color: #34d399; }
 .card:hover { border-color: #3a3d4a; }
 .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px; gap: 8px; flex-wrap: wrap; }
 .card-header h2 { font-size: 15px; font-weight: 700; flex: 1; min-width: 0; }
-.header-roas { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; }
+.header-roas { display: flex; flex-direction: row; align-items: center; gap: 8px; flex-shrink: 0; }
 .header-target { display: flex; align-items: center; gap: 4px; font-size: 11px; color: #6b7280; }
 .badge { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 20px; white-space: nowrap; }
 .badge-green { background: #064e3b; color: #34d399; }
@@ -449,12 +449,12 @@ function renderCard(account, mccKey) {
     '<div class="card-header">' +
       '<h2>' + account.name + '</h2>' +
       '<div class="header-roas">' +
-        '<span class="badge badge-' + rc + '">' + fmtRoas(account.totalRoas) + ' ROAS' + badgeRoasDelta + '</span>' +
         '<div class="header-target">' +
           '<span>Target</span>' +
           '<input class="target-roas-input" type="number" step="10" min="0" value="' + Math.round(target * 100) + '" onchange="updateTargetRoas(\'' + safeName + '\', this)" />' +
           '<span>%</span>' +
         '</div>' +
+        '<span class="badge badge-' + rc + '">' + fmtRoas(account.totalRoas) + ' ROAS' + badgeRoasDelta + '</span>' +
       '</div>' +
     '</div>' +
     '<div class="card-links">' + linksHtml + '</div>' +
