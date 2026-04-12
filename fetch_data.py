@@ -161,9 +161,9 @@ def fetch_campaigns(token: str, account_id: str, login_customer_id: str, days: i
     return result
 
 
-def fetch_all() -> dict:
+def fetch_all(days: int = 7) -> dict:
     """Fetch campaign data for all accounts across both MCCs. Returns dashboard-ready dict."""
-    logger.info("Starting full data fetch...")
+    logger.info("Starting full data fetch for %d days...", days)
     data = {"happy": [], "upscale": [], "fetched_at": None}
 
     for mcc_key in ["happy", "upscale"]:
@@ -181,7 +181,7 @@ def fetch_all() -> dict:
             acc_id = str(acc["id"])
             acc_name = ACCOUNT_NAMES.get(acc_id, acc.get("name", acc_id))
             try:
-                campaigns = fetch_campaigns(token, acc_id, mcc["login_customer_id"])
+                campaigns = fetch_campaigns(token, acc_id, mcc["login_customer_id"], days=days)
                 total_cost = sum(c["cost"] for c in campaigns)
                 total_revenue = sum(c["revenue"] for c in campaigns)
 

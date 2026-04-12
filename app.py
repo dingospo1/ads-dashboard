@@ -1,5 +1,6 @@
 """
 Google Ads Performance Dashboard — Flask app with hourly auto-refresh.
+Supports multiple time ranges: 7, 14, 30, 90, 180, 365 days.
 """
 
 import os
@@ -8,7 +9,7 @@ import logging
 import threading
 from datetime import datetime
 
-from flask import Flask, render_template, jsonify
+from flask import Flask, render_template, jsonify, request
 
 from fetch_data import fetch_all
 
@@ -17,21 +18,24 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
-# In-memory data store
-_data = {"happy": [], "upscale": [], "fetched_at": "Not yet fetched"}
+VALID_DAYS = [7, 14, 30, 90, 180, 365]
+
+# In-memory data store keyed by days
+_data = {}
 _lock = threading.Lock()
 
 
 def refresh_data():
-    """Fetch fresh data from Google Ads API."""
+    """Fetch fresh data for all time ranges."""
     global _data
-    try:
-        new_data = fetch_all()
-        with _lock:
-            _data = new_data
-        logger.info("Data refreshed at %s", _data.get("fetched_at", "unknown"))
-    except Exception as e:
-        logger.error("Data refresh failed: %s", e)
+    for days in VALID_DAYS:
+        try:
+            new_data = fetch_all(days=days)
+            with _lock:
+                _data[days] = new_data
+            logger.info("Data refreshed for %dd at %s", days, new_data.get("fetched_at", "unknown"))
+        except Exception as e:
+            logger.error("Data refresh failed for %dd: %s", days, e)
 
 
 def start_scheduler():
@@ -46,8 +50,12 @@ def start_scheduler():
 
 @app.route("/")
 def dashboard():
+    days = request.args.get("days", 7, type=int)
+    if days not in VALID_DAYS:
+        days = 7
+
     with _lock:
-        data = _data.copy()
+        data = _data.get(days, {"happy": [], "upscale": [], "fetched_at": "Loading..."})
 
     all_accs = data.get("happy", []) + data.get("upscale", [])
     total_cost = sum(a["totalCost"] for a in all_accs)
@@ -64,13 +72,18 @@ def dashboard():
         num_accounts=len(all_accs),
         num_campaigns=num_campaigns,
         fetched_at=data.get("fetched_at", "Never"),
+        current_days=days,
+        valid_days=VALID_DAYS,
     )
 
 
 @app.route("/api/data")
 def api_data():
+    days = request.args.get("days", 7, type=int)
+    if days not in VALID_DAYS:
+        days = 7
     with _lock:
-        return jsonify(_data)
+        return jsonify(_data.get(days, {}))
 
 
 @app.route("/api/refresh", methods=["POST"])
@@ -82,11 +95,10 @@ def api_refresh():
 
 @app.route("/health")
 def health():
-    return jsonify({"status": "ok", "fetched_at": _data.get("fetched_at")})
+    d7 = _data.get(7, {})
+    return jsonify({"status": "ok", "fetched_at": d7.get("fetched_at"), "ranges_loaded": list(_data.keys())})
 
 
-# Gunicorn preload hook: runs once when using --preload
-# For direct `python app.py`, handled in __main__
 _initialized = False
 
 def init_app():
@@ -99,7 +111,6 @@ def init_app():
     start_scheduler()
 
 
-# Auto-init when imported by gunicorn with --preload
 init_app()
 
 

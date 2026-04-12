@@ -17,6 +17,9 @@
   .refresh-btn { background: #1a1d27; border: 1px solid #2a2d3a; color: #9ca3af; font-size: 12px; padding: 6px 14px; border-radius: 6px; cursor: pointer; transition: all 0.2s; }
   .refresh-btn:hover { color: #e1e4e8; border-color: #4a4d5a; background: #22252f; }
   .refresh-btn.loading { opacity: 0.5; pointer-events: none; }
+  .time-select { background: #1a1d27; border: 1px solid #2a2d3a; color: #e1e4e8; font-size: 13px; padding: 6px 12px; border-radius: 6px; cursor: pointer; appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%239ca3af' d='M3 5l3 3 3-3'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; padding-right: 28px; }
+  .time-select:hover { border-color: #4a4d5a; }
+  .time-select:focus { outline: none; border-color: #34d399; }
   .live-dot { width: 8px; height: 8px; border-radius: 50%; background: #34d399; display: inline-block; animation: pulse 2s infinite; }
   @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 
@@ -84,12 +87,17 @@
 <div class="header">
   <h1>Google Ads Performance</h1>
   <div class="refresh-bar">
+    <select class="time-select" id="days-select" onchange="changeDays(this.value)">
+      {% for d in valid_days %}
+      <option value="{{ d }}" {% if d == current_days %}selected{% endif %}>Last {{ d }}d</option>
+      {% endfor %}
+    </select>
     <span class="live-dot"></span>
     <span class="last-updated" id="last-updated">Updated: {{ fetched_at }}</span>
     <button class="refresh-btn" id="refresh-btn" onclick="manualRefresh()">Refresh now</button>
   </div>
 </div>
-<p class="subtitle">All accounts, Happy Mondays & Upscale MCCs. Last 7 days, by conversion time. Auto-refreshes every hour.</p>
+<p class="subtitle">All accounts, Happy Mondays & Upscale MCCs. By conversion time. Auto-refreshes every hour.</p>
 
 <div class="summary-bar">
   <div class="stat-box">
@@ -183,6 +191,10 @@ function toggleRows(group, btn) {
   const hidden = rows[rows.length - 1].style.display === 'none';
   rows.forEach((r, i) => { if (i >= 8) r.style.display = hidden ? 'flex' : 'none'; });
   btn.textContent = hidden ? 'Show less' : 'Show ' + (rows.length - 8) + ' more';
+}
+
+function changeDays(days) {
+  window.location.href = '/?days=' + days;
 }
 
 function manualRefresh() {
