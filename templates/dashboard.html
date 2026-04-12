@@ -259,8 +259,13 @@ select.ctrl:focus { outline: none; border-color: #34d399; }
         </select>
         <select class="ctrl" id="modal-compare" onchange="changeModalCompare(this.value)" style="font-size:12px;padding:5px 22px 5px 8px;">
           <option value="none">No comparison</option>
-          <option value="period">vs Previous period</option>
+          <option value="period" selected>vs Previous period</option>
           <option value="year">vs Previous year</option>
+        </select>
+        <select class="ctrl" id="modal-camp-filter" onchange="changeModalCampFilter(this.value)" style="font-size:12px;padding:5px 22px 5px 8px;">
+          <option value="active" selected>Active</option>
+          <option value="paused">Paused</option>
+          <option value="all">All</option>
         </select>
       </div>
     </div>
@@ -648,9 +653,10 @@ function switchTab(tab) {
    ============================================================ */
 let modal = {
   account: null, mcc: null, accountId: null,
-  days: currentDays, rangeType: rangeType || '',
-  customStart: customStart || '', customEnd: customEnd || '',
-  compareMode: 'none',
+  days: 7, rangeType: '',
+  customStart: '', customEnd: '',
+  compareMode: 'period',
+  campFilter: 'active',
   data: null, cmpData: null
 };
 
@@ -661,21 +667,17 @@ function openDeeperDive(accountName, mccKey) {
   const allAccs = [...happyAccounts, ...upscaleAccounts];
   const acc = allAccs.find(a => a.name === accountName);
   modal.accountId = acc ? acc.accountId : null;
-  modal.days = currentDays;
-  modal.rangeType = rangeType || '';
-  modal.customStart = customStart || '';
-  modal.customEnd = customEnd || '';
-  modal.compareMode = 'none';
+  modal.days = 7;
+  modal.rangeType = '';
+  modal.customStart = '';
+  modal.customEnd = '';
+  modal.compareMode = 'period';
+  modal.campFilter = 'active';
   modal.data = null; modal.cmpData = null;
 
-  // Sync range selector to current page range
-  const rs = document.getElementById('modal-range');
-  if (modal.rangeType && ['mtd','ytd','lastmonth'].includes(modal.rangeType)) {
-    rs.value = modal.rangeType;
-  } else {
-    rs.value = 'days-' + modal.days;
-  }
-  document.getElementById('modal-compare').value = 'none';
+  document.getElementById('modal-range').value = 'days-7';
+  document.getElementById('modal-compare').value = 'period';
+  document.getElementById('modal-camp-filter').value = 'active';
   document.getElementById('modal-title').textContent = accountName;
   document.getElementById('modal-overlay').classList.add('open');
   document.getElementById('modal-content').innerHTML = '<div class="modal-loading">Loading...</div>';
@@ -707,6 +709,11 @@ function changeModalCompare(val) {
   modal.compareMode = val;
   if (val === 'none') { modal.cmpData = null; renderDeeperDive(); return; }
   fetchDeeperCompare();
+}
+
+function changeModalCampFilter(val) {
+  modal.campFilter = val;
+  renderDeeperDive();
 }
 
 function deeperUrl(days, rangeType, customStart, customEnd) {
@@ -800,7 +807,12 @@ function renderDeeperDive() {
       const sign = pct>=0?'+':''; const cls = invert?(pct>0?'delta-cost-up':'delta-cost-down'):(pct>0?'delta-up':'delta-down');
       return '<td>' + val + '<div class="delta ' + cls + '" style="font-size:10px">' + sign + pct.toFixed(1) + '%</div></td>';
     }
-    const campRows = d.campaigns.map(c => {
+    const filteredCamps = d.campaigns.filter(c => {
+      if (modal.campFilter === 'active') return c.campaignStatus === 'ENABLED';
+      if (modal.campFilter === 'paused') return c.campaignStatus === 'PAUSED';
+      return true;
+    });
+    const campRows = filteredCamps.map(c => {
       const cc = findCmp(c.name);
       const rc = roasClass(c.roas, target);
       const roasCl = rc==='green'?'#34d399':rc==='yellow'?'#fbbf24':'#f87171';
