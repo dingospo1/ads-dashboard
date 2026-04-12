@@ -463,6 +463,23 @@ const UPSCALE_NAMES = ['value canvas prints'];
 // Accounts to always block regardless of MCC
 const BLOCKED_NAMES = ['pixalot','meloqdevices','exceptionalfire','nativemed','unboundminds','centro inca','bm ireland','babydoc','globber','baldcut','beaulares'];
 
+// Static fallback — used by MC tab when rawData is empty (e.g. API quota exhausted)
+const STATIC_HAPPY = [
+  { accountId: '8804096601', name: 'ByAnavrin',             mcc: 'Happy Mondays' },
+  { accountId: '3456762782', name: 'Aromely',               mcc: 'Happy Mondays' },
+  { accountId: '5525863856', name: "Don's Liquors",         mcc: 'Happy Mondays' },
+  { accountId: '2614199584', name: 'Home Teeth Whitening',  mcc: 'Happy Mondays' },
+  { accountId: '1850620188', name: 'Lucky Honey',           mcc: 'Happy Mondays' },
+  { accountId: '9222479033', name: 'Plum Play UK',          mcc: 'Happy Mondays' },
+  { accountId: '6248452745', name: 'Vintage Muscle',        mcc: 'Happy Mondays' },
+  { accountId: '6078059992', name: 'Warrior Willpower',     mcc: 'Happy Mondays' },
+];
+const STATIC_UPSCALE = [
+  { accountId: '4999947870', name: 'All Cars Fix', mcc: 'Upscale' },
+  { accountId: '8045249572', name: 'SilverAnt',    mcc: 'Upscale' },
+  { accountId: '6812459700', name: 'HGV Direct',   mcc: 'Upscale' },
+];
+
 function isBlocked(a) { const n = (a.name||'').toLowerCase().replace(/\s/g,''); return BLOCKED_NAMES.some(b => n.includes(b.replace(/\s/g,''))); }
 function inHappyFilter(a)   { return !isBlocked(a) && (HAPPY_IDS.has(String(a.accountId))   || HAPPY_NAMES.some(n => (a.name||'').toLowerCase().includes(n))); }
 function inUpscaleFilter(a) { return !isBlocked(a) && (UPSCALE_IDS.has(String(a.accountId)) || UPSCALE_NAMES.some(n => (a.name||'').toLowerCase().includes(n))); }
@@ -846,16 +863,14 @@ function loadMcTab() {
   loadingEl.style.display = 'block';
   gridEl.style.display = 'none';
 
-  // Use the already-loaded account lists as base — don't depend on API for account list
+  // Use live account lists if available, otherwise fall back to hardcoded list
+  // (live lists are empty when Google Ads API quota is exhausted on startup)
+  const liveHappy   = happyAccounts.map(a => ({ name: a.name, accountId: a.accountId, merchantId: a.merchantId || 0, mcc: 'Happy Mondays' }));
+  const liveUpscale = upscaleAccounts.map(a => ({ name: a.name, accountId: a.accountId, merchantId: a.merchantId || 0, mcc: 'Upscale' }));
   const baseAccounts = [
-    ...happyAccounts.map(a => ({ name: a.name, accountId: a.accountId, merchantId: a.merchantId || 0, mcc: 'Happy Mondays' })),
-    ...upscaleAccounts.map(a => ({ name: a.name, accountId: a.accountId, merchantId: a.merchantId || 0, mcc: 'Upscale' })),
+    ...(liveHappy.length   ? liveHappy   : STATIC_HAPPY.map(a => ({ ...a, merchantId: 0 }))),
+    ...(liveUpscale.length ? liveUpscale : STATIC_UPSCALE.map(a => ({ ...a, merchantId: 0 }))),
   ];
-
-  if (!baseAccounts.length) {
-    loadingEl.textContent = 'No accounts loaded yet — wait for the data refresh.';
-    return;
-  }
 
   // Show accounts immediately with loading state, then overlay MC status
   gridEl.innerHTML = baseAccounts.map(a => buildMcCard({...a, _loading: true})).join('');
