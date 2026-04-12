@@ -461,7 +461,7 @@ const UPSCALE_IDS = new Set(['4999947870','8045249572','6812459700']);
 const UPSCALE_NAMES = ['value canvas prints'];
 
 // Accounts to always block regardless of MCC
-const BLOCKED_NAMES = ['pixalot','meloqdevices','exceptionalfire','nativemed','unboundminds','centro inca'];
+const BLOCKED_NAMES = ['pixalot','meloqdevices','exceptionalfire','nativemed','unboundminds','centro inca','bm ireland','babydoc','globber','baldcut','beaulares'];
 
 function isBlocked(a) { const n = (a.name||'').toLowerCase().replace(/\s/g,''); return BLOCKED_NAMES.some(b => n.includes(b.replace(/\s/g,''))); }
 function inHappyFilter(a)   { return !isBlocked(a) && (HAPPY_IDS.has(String(a.accountId))   || HAPPY_NAMES.some(n => (a.name||'').toLowerCase().includes(n))); }
