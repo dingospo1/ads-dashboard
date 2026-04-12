@@ -66,6 +66,8 @@ select.ctrl:focus { outline: none; border-color: #34d399; }
 .card:hover { border-color: #3a3d4a; }
 .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px; gap: 8px; flex-wrap: wrap; }
 .card-header h2 { font-size: 15px; font-weight: 700; flex: 1; min-width: 0; }
+.header-roas { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; }
+.header-target { display: flex; align-items: center; gap: 4px; font-size: 11px; color: #6b7280; }
 .badge { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 20px; white-space: nowrap; }
 .badge-green { background: #064e3b; color: #34d399; }
 .badge-yellow { background: #713f12; color: #fbbf24; }
@@ -424,22 +426,23 @@ function renderCard(account, mccKey) {
 
   const badgeRoasDelta = cmp ? (' <span style="font-weight:400;opacity:0.7;font-size:10px">' + (pctChange(account.totalRoas, cmp.totalRoas) !== null ? (pctChange(account.totalRoas, cmp.totalRoas) >= 0 ? '+' : '') + pctChange(account.totalRoas, cmp.totalRoas).toFixed(1) + '%' : '') + '</span>') : '';
 
+  const safeName = account.name.replace(/'/g,"\\x27");
   return '<div class="card" data-card-id="' + id + '">' +
     '<div class="card-header">' +
       '<h2>' + account.name + '</h2>' +
-      '<span class="badge badge-' + rc + '">' + fmtRoas(account.totalRoas) + ' ROAS' + badgeRoasDelta + '</span>' +
+      '<div class="header-roas">' +
+        '<span class="badge badge-' + rc + '">' + fmtRoas(account.totalRoas) + ' ROAS' + badgeRoasDelta + '</span>' +
+        '<div class="header-target">' +
+          '<span>Target</span>' +
+          '<input class="target-roas-input" type="number" step="10" min="0" value="' + Math.round(target * 100) + '" onchange="updateTargetRoas(\'' + safeName + '\', this)" />' +
+          '<span>%</span>' +
+        '</div>' +
+      '</div>' +
     '</div>' +
     '<div class="card-links">' + linksHtml + '</div>' +
     '<div class="account-summary">' +
       '<div class="account-stat">Cost<span>' + fmt(account.totalCost) + '</span>' + costDelta + '</div>' +
       '<div class="account-stat">Revenue<span style="color:#34d399">' + fmt(account.totalRevenue) + '</span>' + revDelta + '</div>' +
-      '<div class="account-stat">ROAS<span style="color:' + (rc==='green'?'#34d399':rc==='yellow'?'#fbbf24':'#f87171') + '">' + fmtRoas(account.totalRoas) + '</span>' + roasDelta +
-        '<div style="display:flex;align-items:center;gap:3px;margin-top:4px">' +
-          '<span style="font-size:10px;color:#6b7280">Target</span>' +
-          '<input class="target-roas-input" type="number" step="10" min="0" value="' + Math.round(target * 100) + '" onchange="updateTargetRoas(\'' + account.name.replace(/'/g,"\\x27") + '\', this)" />' +
-          '<span style="font-size:10px;color:#6b7280">%</span>' +
-        '</div>' +
-      '</div>' +
     '</div>' +
     '<div class="col-header">' +
       '<span class="campaign-name">Campaign</span>' +
@@ -449,7 +452,7 @@ function renderCard(account, mccKey) {
     '</div>' +
     '<div class="campaign-list" data-list="' + id + '">' + rows + '</div>' +
     toggleHtml +
-    '<button class="deeper-btn" onclick="openDeeperDive(\'' + account.name.replace(/'/g,"\\x27") + '\', \'' + mccKey + '\')">&#128269; Deeper Dive</button>' +
+    '<button class="deeper-btn" onclick="openDeeperDive(\'' + safeName + '\', \'' + mccKey + '\')">&#128269; Deeper Dive</button>' +
   '</div>';
 }
 
