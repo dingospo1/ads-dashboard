@@ -159,28 +159,38 @@ select.ctrl:focus { outline: none; border-color: #34d399; }
 .modal-title { font-size: 18px; font-weight: 700; flex: 1; min-width: 120px; }
 .modal-controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .modal-loading { text-align: center; color: #6b7280; padding: 60px 0; font-size: 14px; }
-.modal-date-label { font-size: 11px; color: #6b7280; margin-bottom: 14px; }
-.kpi-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 16px; }
-.kpi-box { background: #1a1d27; border: 1px solid #2a2d3a; border-radius: 8px; padding: 11px 13px; }
-.kpi-label { font-size: 10px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
-.kpi-value { font-size: 19px; font-weight: 700; }
-.kpi-delta { font-size: 11px; margin-top: 2px; }
-/* Metric pill selector */
-.metric-pills { display: flex; flex-wrap: wrap; gap: 6px; }
-.metric-pill { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 20px; border: 1px solid #2a2d3a; background: transparent; cursor: pointer; font-size: 11px; color: #6b7280; transition: all 0.15s; user-select: none; }
-.metric-pill:hover { border-color: #4b5563; color: #9ca3af; }
-.metric-pill.pill-on { color: #e1e4e8; }
-.metric-pill-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; opacity: 0.4; }
-.metric-pill.pill-on .metric-pill-dot { opacity: 1; }
+.modal-date-label { font-size: 11px; color: #6b7280; margin-bottom: 12px; }
 
-/* Chart controls row (pills + granularity toggle) */
-.chart-controls-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
-.gran-ctrl { display: flex; background: #0f1117; border: 1px solid #2a2d3a; border-radius: 6px; overflow: hidden; flex-shrink: 0; align-self: flex-start; }
+/* ── KPI Cards (Google Ads style) ── */
+.kpi-row { display: flex; overflow-x: auto; -webkit-overflow-scrolling: touch; scroll-snap-type: x mandatory; scrollbar-width: none; border: 1px solid #2a2d3a; border-radius: 10px; overflow: hidden; margin-bottom: 0; }
+.kpi-row::-webkit-scrollbar { display: none; }
+.kpi-card { flex: 1 0 25%; min-width: 140px; background: #1a1d27; padding: 13px 15px 11px; cursor: pointer; position: relative; border-right: 1px solid #2a2d3a; border-bottom: 3px solid transparent; transition: background 0.12s; scroll-snap-align: start; -webkit-tap-highlight-color: transparent; user-select: none; }
+.kpi-card:last-child { border-right: none; }
+.kpi-card:hover { background: #1e2130; }
+.kpi-card.kpi-active { background: #111520; }
+.kpi-card-label { font-size: 10px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; gap: 4px; }
+.kpi-card-value { font-size: 20px; font-weight: 700; color: #e1e4e8; line-height: 1.1; }
+.kpi-card-delta { font-size: 11px; margin-top: 4px; min-height: 15px; }
+.kpi-edit-btn { background: none; border: none; color: #374151; font-size: 12px; cursor: pointer; padding: 1px 3px; line-height: 1; flex-shrink: 0; border-radius: 3px; transition: color 0.12s; }
+.kpi-edit-btn:hover { color: #9ca3af; }
+
+/* KPI Picker dropdown */
+.kpi-picker { position: absolute; top: calc(100% + 2px); left: 0; min-width: 175px; background: #1a1d27; border: 1px solid #3a3d4a; border-radius: 8px; z-index: 300; box-shadow: 0 12px 32px rgba(0,0,0,0.65); max-height: 230px; overflow-y: auto; }
+.kpi-picker-opt { padding: 9px 13px; font-size: 12px; color: #9ca3af; cursor: pointer; display: flex; align-items: center; gap: 9px; }
+.kpi-picker-opt:hover { background: #252836; color: #e1e4e8; }
+.kpi-picker-opt.opt-active { color: #e1e4e8; font-weight: 600; }
+.kpi-picker-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+/* Chart header row */
+.chart-header { display: flex; justify-content: space-between; align-items: center; margin: 14px 0 8px; }
+.chart-metric-label { font-size: 12px; color: #6b7280; }
+.gran-ctrl { display: flex; background: #0f1117; border: 1px solid #2a2d3a; border-radius: 6px; overflow: hidden; flex-shrink: 0; }
 .gran-btn { background: none; border: none; color: #6b7280; font-size: 11px; font-weight: 600; padding: 5px 13px; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
 .gran-btn:hover { color: #e1e4e8; }
 .gran-btn.gran-active { background: #2a2d3a; color: #e1e4e8; }
-.chart-wrap { background: #1a1d27; border: 1px solid #2a2d3a; border-radius: 8px; padding: 16px 16px 10px; margin-bottom: 22px; height: 290px; position: relative; }
+.chart-wrap { background: #1a1d27; border: 1px solid #2a2d3a; border-radius: 8px; padding: 14px 14px 8px; margin-bottom: 22px; height: 280px; position: relative; }
 .chart-wrap canvas { width: 100% !important; height: 100% !important; }
+.chart-no-data { display: flex; align-items: center; justify-content: center; height: 100%; color: #4b5563; font-size: 13px; }
 .th-sort { cursor: pointer; user-select: none; white-space: nowrap; }
 .th-sort:hover { color: #e1e4e8; }
 .modal-section-title { font-size: 12px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 10px; }
@@ -196,20 +206,32 @@ select.ctrl:focus { outline: none; border-color: #34d399; }
 
 /* MOBILE */
 @media (max-width: 640px) {
-  body { padding: 12px 14px; }
-  h1 { font-size: 18px; }
-  .controls { gap: 6px; }
-  .summary-bar { gap: 8px; }
-  .stat-box { min-width: 80px; padding: 10px 12px; }
-  .stat-value { font-size: 18px; }
+  body { padding: 10px 12px; }
+  h1 { font-size: 17px; }
+  .controls { gap: 5px; }
+  .summary-bar { gap: 7px; }
+  .stat-box { min-width: 76px; padding: 9px 11px; }
+  .stat-value { font-size: 17px; }
   .grid { grid-template-columns: 1fr; }
-  .card { padding: 14px; }
+  .card { padding: 13px; }
   .account-summary { gap: 10px; }
-  .campaign-metric { width: 65px; }
-  .campaign-metric.roas { width: 55px; }
-  .kpi-grid { grid-template-columns: repeat(2, 1fr); }
-  .modal { margin: 10px; padding: 18px; border-radius: 10px; }
   .tab { padding: 6px 12px; font-size: 12px; }
+  /* Modal */
+  .modal { margin: 0; padding: 14px 12px; border-radius: 0; min-height: 100vh; border: none; }
+  .modal-overlay { padding: 0; }
+  .modal-header { gap: 8px; margin-bottom: 12px; }
+  .modal-title { font-size: 16px; }
+  .modal-controls { gap: 6px; }
+  /* KPI Cards — show 2 per screen on mobile */
+  .kpi-card { flex: 0 0 48%; min-width: 130px; padding: 12px 12px 10px; }
+  .kpi-card-value { font-size: 18px; }
+  /* Chart */
+  .chart-wrap { height: 220px; padding: 10px 10px 6px; }
+  .chart-header { margin: 10px 0 6px; }
+  /* Granularity toggle — larger tap targets */
+  .gran-btn { padding: 7px 14px; font-size: 12px; }
+  /* Tables — allow horizontal scroll, increase row height */
+  .data-table th, .data-table td { padding: 8px 8px; font-size: 11px; }
 }
 </style>
 </head>
@@ -374,20 +396,23 @@ let campFilter = 'active'; // 'active','paused','all'
 let deeperChart = null;
 
 /* ============================================================
-   CHART KPI CONFIG
+   KPI CONFIG — single source of truth for all metrics
    ============================================================ */
-const CHART_KPIS = [
-  { key:'revenue',     label:'Revenue',     color:'#34d399', type:'dollar'  },
-  { key:'cost',        label:'Cost',        color:'#f87171', type:'dollar'  },
-  { key:'roas',        label:'ROAS',        color:'#fbbf24', type:'roaspct' },
-  { key:'conversions', label:'Conversions', color:'#a78bfa', type:'num'     },
-  { key:'clicks',      label:'Clicks',      color:'#60a5fa', type:'num'     },
-  { key:'ctr',         label:'CTR',         color:'#818cf8', type:'pct'     },
-  { key:'cpc',         label:'CPC',         color:'#fb923c', type:'dollar2' },
-  { key:'convRate',    label:'Conv. Rate',  color:'#2dd4bf', type:'pct'     },
-  { key:'aov',         label:'AOV',         color:'#e879f9', type:'dollar'  },
-  { key:'impressions', label:'Impressions', color:'#94a3b8', type:'bignum'  },
-];
+const KPI_CONFIG = {
+  revenue:         { label:'Revenue',      color:'#34d399', type:'dollar',  invert:false, getVal: d=>d.totalRevenue,        getCmp: c=>c&&c.totalRevenue },
+  cost:            { label:'Cost',         color:'#f87171', type:'dollar',  invert:true,  getVal: d=>d.totalCost,           getCmp: c=>c&&c.totalCost },
+  roas:            { label:'ROAS',         color:'#fbbf24', type:'roaspct', invert:false, getVal: d=>d.totalRoas,           getCmp: c=>c&&c.totalRoas },
+  conversions:     { label:'Conversions',  color:'#a78bfa', type:'num',     invert:false, getVal: d=>d.totalConversions,    getCmp: c=>c&&c.totalConversions },
+  convRate:        { label:'Conv. Rate',   color:'#2dd4bf', type:'pct',     invert:false, getVal: d=>d.convRate,            getCmp: c=>c&&c.convRate },
+  cpc:             { label:'CPC',          color:'#fb923c', type:'dollar2', invert:true,  getVal: d=>d.cpc,                 getCmp: c=>c&&c.cpc },
+  ctr:             { label:'CTR',          color:'#818cf8', type:'pct',     invert:false, getVal: d=>d.ctr,                 getCmp: c=>c&&c.ctr },
+  clicks:          { label:'Clicks',       color:'#60a5fa', type:'bignum',  invert:false, getVal: d=>d.totalClicks,         getCmp: c=>c&&c.totalClicks },
+  aov:             { label:'AOV',          color:'#e879f9', type:'dollar',  invert:false, getVal: d=>d.aov>0?d.aov:null,    getCmp: c=>c&&c.aov>0?c.aov:null },
+  impressionShare: { label:'Impr. Share',  color:'#94a3b8', type:'pct',     invert:false, getVal: d=>d.impressionShare>0?d.impressionShare:null, getCmp: c=>c&&c.impressionShare>0?c.impressionShare:null, noChart:true },
+  targetRoas:      { label:'Target ROAS',  color:'#6b7280', type:'roaspct', invert:false, getVal: ()=>getTargetRoas(modal.account), getCmp: ()=>null, noChart:true },
+};
+const KPI_KEYS = ['revenue','cost','roas','conversions','convRate','cpc','ctr','clicks','aov','impressionShare','targetRoas'];
+const DEFAULT_CARD_KPIS = ['revenue','cost','roas','conversions'];
 
 // Y-axis tick formatters
 const AXIS_FMT = {
@@ -848,7 +873,9 @@ let modal = {
   compareMode: 'period',
   campFilter: 'active',
   sortCol: 'cost', sortDir: 'desc',
-  chartKPIs: ['revenue'],
+  activeCardIdx: 0,
+  cardKPIs: [...DEFAULT_CARD_KPIS],
+  pickerOpenIdx: -1,
   chartGranularity: 'daily',
   campShowAll: false,
   prodSortCol: 'cost', prodSortDir: 'desc', prodShowAll: false,
@@ -869,9 +896,12 @@ function openDeeperDive(accountName, mccKey) {
   modal.compareMode = 'period';
   modal.campFilter = 'active';
   modal.sortCol = 'cost'; modal.sortDir = 'desc';
-  modal.chartKPIs = ['revenue'];
+  modal.activeCardIdx = 0;
+  modal.cardKPIs = [...DEFAULT_CARD_KPIS];
+  modal.pickerOpenIdx = -1;
   modal.chartGranularity = 'daily';
   modal.campShowAll = false;
+  loadCardPrefs();
   modal.prodSortCol = 'cost'; modal.prodSortDir = 'desc'; modal.prodShowAll = false;
   modal.data = null; modal.cmpData = null;
 
@@ -921,34 +951,100 @@ function sortDeeperCol(field) {
   refreshCampSection();
 }
 
-function toggleChartKPI(key) {
-  const idx = modal.chartKPIs.indexOf(key);
-  if (idx === -1) {
-    modal.chartKPIs.push(key);
-  } else {
-    if (modal.chartKPIs.length === 1) return; // keep at least one
-    modal.chartKPIs.splice(idx, 1);
-  }
-  refreshKpiAndChart();
+/* ── KPI Card functions ── */
+function loadCardPrefs() {
+  try {
+    const saved = localStorage.getItem('dd_card_kpis');
+    if (saved) { const p = JSON.parse(saved); if (Array.isArray(p) && p.length === 4) modal.cardKPIs = p; }
+  } catch(e) {}
+  try {
+    const idx = localStorage.getItem('dd_active_card');
+    if (idx !== null) modal.activeCardIdx = Math.max(0, Math.min(parseInt(idx), modal.cardKPIs.length - 1));
+  } catch(e) {}
 }
 
-function buildChartSelectorHtml() {
-  return CHART_KPIS.map(k => {
-    const isOn = modal.chartKPIs.includes(k.key);
-    const borderStyle = isOn ? 'border-color:' + k.color + ';' : '';
-    return '<button class="metric-pill' + (isOn ? ' pill-on' : '') + '" ' +
-      'style="' + borderStyle + '" ' +
-      'onclick="toggleChartKPI(\'' + k.key + '\')">' +
-      '<span class="metric-pill-dot" style="background:' + k.color + '"></span>' +
-      k.label +
-    '</button>';
+function saveCardPrefs() {
+  try { localStorage.setItem('dd_card_kpis', JSON.stringify(modal.cardKPIs)); } catch(e) {}
+  try { localStorage.setItem('dd_active_card', String(modal.activeCardIdx)); } catch(e) {}
+}
+
+function buildKpiCardsHtml(d, cmp) {
+  return modal.cardKPIs.map((key, idx) => {
+    const cfg = KPI_CONFIG[key];
+    if (!cfg) return '';
+    const isActive = idx === modal.activeCardIdx;
+    const raw = cfg.getVal(d);
+    const cmpRaw = cfg.getCmp(cmp);
+    const valStr = (raw !== null && raw !== undefined) ? TIP_FMT[cfg.type](raw) : '—';
+
+    let deltaHtml = '<div class="kpi-card-delta"></div>';
+    if (raw !== null && cmpRaw) {
+      const pct = (raw - cmpRaw) / Math.abs(cmpRaw) * 100;
+      const sign = pct >= 0 ? '+' : '';
+      const up = pct > 0, cls = up ? (cfg.invert ? 'delta-cost-up' : 'delta-up') : (cfg.invert ? 'delta-cost-down' : 'delta-down');
+      deltaHtml = '<div class="kpi-card-delta ' + cls + '">' + sign + pct.toFixed(1) + '%</div>';
+    }
+
+    const pickerHtml = modal.pickerOpenIdx === idx ? buildKpiPickerHtml(idx) : '';
+    const borderStyle = isActive ? 'border-bottom-color:' + cfg.color + ';' : '';
+
+    return '<div class="kpi-card' + (isActive ? ' kpi-active' : '') + '" style="' + borderStyle + '" onclick="setActiveCard(' + idx + ')">' +
+      '<div class="kpi-card-label">' +
+        '<span>' + cfg.label + '</span>' +
+        '<button class="kpi-edit-btn" onclick="openKpiPicker(event,' + idx + ')" title="Change metric">&#9998;</button>' +
+      '</div>' +
+      '<div class="kpi-card-value">' + valStr + '</div>' +
+      deltaHtml + pickerHtml +
+    '</div>';
   }).join('');
 }
 
-// Targeted refresh — pill selector + granularity + chart only (no scroll jump)
+function buildKpiPickerHtml(cardIdx) {
+  return '<div class="kpi-picker" onclick="event.stopPropagation()">' +
+    KPI_KEYS.map(key => {
+      const cfg = KPI_CONFIG[key];
+      const isSelected = modal.cardKPIs[cardIdx] === key;
+      return '<div class="kpi-picker-opt' + (isSelected ? ' opt-active' : '') + '" onclick="setCardKpi(event,' + cardIdx + ',\'' + key + '\')">' +
+        '<span class="kpi-picker-dot" style="background:' + cfg.color + '"></span>' + cfg.label +
+      '</div>';
+    }).join('') +
+  '</div>';
+}
+
+function setActiveCard(idx) {
+  if (modal.pickerOpenIdx >= 0) { modal.pickerOpenIdx = -1; refreshKpiCards(); return; }
+  modal.activeCardIdx = idx;
+  saveCardPrefs();
+  refreshKpiAndChart();
+}
+
+function openKpiPicker(event, idx) {
+  event.stopPropagation();
+  modal.pickerOpenIdx = modal.pickerOpenIdx === idx ? -1 : idx;
+  refreshKpiCards();
+}
+
+function setCardKpi(event, cardIdx, key) {
+  event.stopPropagation();
+  modal.cardKPIs[cardIdx] = key;
+  modal.pickerOpenIdx = -1;
+  saveCardPrefs();
+  if (modal.activeCardIdx === cardIdx) refreshKpiAndChart();
+  else refreshKpiCards();
+}
+
+function refreshKpiCards() {
+  const el = document.getElementById('modal-kpi-grid');
+  if (el) el.innerHTML = buildKpiCardsHtml(modal.data, modal.cmpData);
+}
+
+// Targeted refresh — KPI cards + chart label + granularity + chart (no scroll jump)
 function refreshKpiAndChart() {
-  const pills = document.getElementById('modal-chart-pills');
-  if (pills) pills.innerHTML = buildChartSelectorHtml();
+  refreshKpiCards();
+  const lbl = document.getElementById('modal-chart-label');
+  const activeKey = modal.cardKPIs[modal.activeCardIdx];
+  const cfg = KPI_CONFIG[activeKey];
+  if (lbl && cfg) lbl.textContent = cfg.label + ' over time';
   const gran = document.getElementById('modal-gran-ctrl');
   if (gran) gran.innerHTML = buildGranularityHtml();
   buildDeeperChart(modal.data);
@@ -1149,36 +1245,6 @@ function changeGranularity(g) {
   refreshKpiAndChart();
 }
 
-function buildKpiGridHtml(d, cmp) {
-  const target = getTargetRoas(modal.account);
-  const roasCls = roasClass(d.totalRoas, target);
-  const roasColor = roasCls==='green'?'#34d399':roasCls==='yellow'?'#fbbf24':'#f87171';
-  function kpiDelta(curr, prev, invert) {
-    if (!cmp || !prev) return '';
-    const pct = (curr - prev) / prev * 100;
-    const sign = pct >= 0 ? '+' : '';
-    const cls = invert ? (pct>0?'delta-cost-up':'delta-cost-down') : (pct>0?'delta-up':'delta-down');
-    return '<div class="kpi-delta ' + cls + '">' + sign + pct.toFixed(1) + '%</div>';
-  }
-  const rows = [
-    { key:'',          label:'Target ROAS', value: Math.round(target*100)+'%',       color:'#9ca3af', delta:'' },
-    { key:'cost',      label:'Cost',        value: fmt(d.totalCost),                  color:'#e1e4e8', delta:kpiDelta(d.totalCost,cmp&&cmp.totalCost,true) },
-    { key:'revenue',   label:'Revenue',     value: fmt(d.totalRevenue),               color:'#e1e4e8', delta:kpiDelta(d.totalRevenue,cmp&&cmp.totalRevenue,false) },
-    { key:'roas',      label:'ROAS',        value: fmtRoas(d.totalRoas),              color:roasColor, delta:kpiDelta(d.totalRoas,cmp&&cmp.totalRoas,false) },
-    { key:'conversions',label:'Conversions',value: d.totalConversions.toFixed(1),    color:'#e1e4e8', delta:kpiDelta(d.totalConversions,cmp&&cmp.totalConversions,false) },
-    { key:'convRate',  label:'Conv. Rate',  value: fmtPct(d.convRate),               color:'#e1e4e8', delta:kpiDelta(d.convRate,cmp&&cmp.convRate,false) },
-    { key:'cpc',       label:'CPC',         value: fmtDec(d.cpc),                    color:'#e1e4e8', delta:kpiDelta(d.cpc,cmp&&cmp.cpc,true) },
-    { key:'ctr',       label:'CTR',         value: fmtPct(d.ctr),                    color:'#e1e4e8', delta:kpiDelta(d.ctr,cmp&&cmp.ctr,false) },
-    { key:'',          label:'Impr. Share', value: d.impressionShare>0?fmtPct(d.impressionShare):'N/A', color:'#e1e4e8', delta:d.impressionShare>0&&cmp?kpiDelta(d.impressionShare,cmp.impressionShare,false):'' },
-    { key:'aov',       label:'AOV',         value: d.aov>0?fmt(d.aov):'N/A',         color:'#e1e4e8', delta:d.aov>0&&cmp?kpiDelta(d.aov,cmp.aov,false):'' },
-  ];
-  return rows.map(k =>
-    '<div class="kpi-box">' +
-      '<div class="kpi-label">' + k.label + '</div>' +
-      '<div class="kpi-value" style="color:' + k.color + '">' + k.value + '</div>' + k.delta +
-    '</div>'
-  ).join('');
-}
 
 function buildCampHtml(d, cmp) {
   if (!d || !d.campaigns || d.campaigns.length === 0) return '';
@@ -1242,68 +1308,70 @@ function buildCampHtml(d, cmp) {
 
 function buildDeeperChart(d) {
   if (deeperChart) { deeperChart.destroy(); deeperChart = null; }
+  const wrap = document.querySelector('.chart-wrap');
+  if (!d || !d.daily || d.daily.length === 0) return;
+
+  const activeKey = modal.cardKPIs[modal.activeCardIdx] || 'revenue';
+  const cfg = KPI_CONFIG[activeKey];
+  if (!cfg) return;
+
+  // noChart metrics (impressionShare, targetRoas) — show message
+  if (cfg.noChart) {
+    if (wrap) wrap.innerHTML = '<div class="chart-no-data">No daily trend available for ' + cfg.label + '</div>';
+    return;
+  }
+  if (wrap && !wrap.querySelector('canvas')) {
+    wrap.innerHTML = '<canvas id="deeper-chart"></canvas>';
+  }
+
   const ctx = document.getElementById('deeper-chart');
-  if (!ctx || !d || !d.daily || d.daily.length === 0) return;
+  if (!ctx) return;
 
   const gran = modal.chartGranularity || 'daily';
   const points = aggregateData(d.daily, gran);
   const labels = points.map(x => fmtGranLabel(x.date, gran));
-  const selected = CHART_KPIS.filter(k => modal.chartKPIs.includes(k.key));
-  if (!selected.length) return;
 
-  // Assign axes: first type → left, second distinct type → right
-  const typeOrder = [];
-  selected.forEach(k => { if (!typeOrder.includes(k.type)) typeOrder.push(k.type); });
-  const leftType = typeOrder[0];
-  const rightType = typeOrder[1] || null;
-
-  const datasets = selected.map(k => ({
-    label: k.label,
-    data: points.map(x => +(x[k.key]||0).toFixed(4)),
-    borderColor: k.color,
-    backgroundColor: k.color + '20',
+  const dataset = {
+    label: cfg.label,
+    data: points.map(x => {
+      const v = x[activeKey];
+      return (v !== undefined && v !== null) ? +v.toFixed(4) : null;
+    }),
+    borderColor: cfg.color,
+    backgroundColor: cfg.color + '18',
     borderWidth: 2.5,
     pointRadius: points.length <= 14 ? 4 : 2,
-    pointHoverRadius: 6,
-    pointBackgroundColor: k.color,
-    tension: 0.35,
-    fill: false,
-    yAxisID: (rightType && k.type === rightType) ? 'yR' : 'yL',
-  }));
-
-  const scales = {
-    x: { ticks:{color:'#6b7280',font:{size:10},maxRotation:45}, grid:{color:'rgba(255,255,255,0.05)'}, border:{color:'#2a2d3a'} },
-    yL: { type:'linear', position:'left', ticks:{color:'#9ca3af',font:{size:10},callback:v=>AXIS_FMT[leftType](v)}, grid:{color:'rgba(255,255,255,0.05)'}, border:{color:'#2a2d3a'} },
+    pointHoverRadius: 7,
+    pointBackgroundColor: cfg.color,
+    pointBorderColor: '#0f1117',
+    pointBorderWidth: 1.5,
+    tension: 0.38,
+    fill: true,
+    spanGaps: true,
   };
-  if (rightType) {
-    scales.yR = { type:'linear', position:'right', ticks:{color:'#6b7280',font:{size:10},callback:v=>AXIS_FMT[rightType](v)}, grid:{display:false}, border:{color:'#2a2d3a'} };
-  }
 
   deeperChart = new Chart(ctx, {
     type: 'line',
-    data: { labels, datasets },
+    data: { labels, datasets: [dataset] },
     options: {
       responsive: true, maintainAspectRatio: false,
-      animation: { duration: 280, easing: 'easeInOutQuart' },
+      animation: { duration: 260, easing: 'easeInOutQuart' },
       interaction: { mode:'index', intersect:false },
       plugins: {
-        legend: {
-          display: selected.length > 1,
-          labels: { color:'#9ca3af', font:{size:11}, boxWidth:10, usePointStyle:true, pointStyle:'circle' },
-        },
+        legend: { display: false },
         tooltip: {
-          backgroundColor:'#1a1d27', borderColor:'#3a3d4a', borderWidth:1,
-          titleColor:'#e1e4e8', bodyColor:'#9ca3af', padding:10, caretSize:5,
+          backgroundColor:'#1a1d27', borderColor: cfg.color, borderWidth:1,
+          titleColor:'#e1e4e8', bodyColor:'#9ca3af', padding:11, caretSize:5,
           callbacks: {
             title: items => fmtGranTooltipTitle(points[items[0].dataIndex]?.date || '', gran),
-            label: ctx => {
-              const k = CHART_KPIS.find(c=>c.label===ctx.dataset.label);
-              return ' ' + ctx.dataset.label + ': ' + (k ? TIP_FMT[k.type](ctx.raw) : ctx.raw);
-            }
+            label: ctx => ' ' + cfg.label + ': ' + TIP_FMT[cfg.type](ctx.raw),
           }
         }
       },
-      scales,
+      scales: {
+        x: { ticks:{color:'#6b7280',font:{size:10},maxRotation:40,maxTicksLimit:10}, grid:{color:'rgba(255,255,255,0.04)'}, border:{color:'#2a2d3a'} },
+        y: { position:'left', ticks:{color:'#9ca3af',font:{size:10},callback:v=>AXIS_FMT[cfg.type](v),maxTicksLimit:6}, grid:{color:'rgba(255,255,255,0.04)'}, border:{color:'#2a2d3a'} },
+      },
     }
   });
 }
@@ -1354,12 +1422,15 @@ function renderDeeperDive() {
   if (!d) return;
   const cmp = modal.cmpData;
 
+  const activeKey = modal.cardKPIs[modal.activeCardIdx] || 'revenue';
+  const activeCfg = KPI_CONFIG[activeKey];
+
   document.getElementById('modal-content').innerHTML =
     '<div class="modal-date-label">' + d.startDate + ' &rarr; ' + d.endDate +
     (cmp ? ' &nbsp;&middot;&nbsp; vs ' + cmp.startDate + ' &rarr; ' + cmp.endDate : '') + '</div>' +
-    '<div id="modal-kpi-grid" class="kpi-grid">' + buildKpiGridHtml(d, cmp) + '</div>' +
-    '<div class="chart-controls-row">' +
-      '<div id="modal-chart-pills" class="metric-pills">' + buildChartSelectorHtml() + '</div>' +
+    '<div id="modal-kpi-grid" class="kpi-row">' + buildKpiCardsHtml(d, cmp) + '</div>' +
+    '<div class="chart-header">' +
+      '<span id="modal-chart-label" class="chart-metric-label">' + (activeCfg ? activeCfg.label + ' over time' : '') + '</span>' +
       '<div id="modal-gran-ctrl" class="gran-ctrl">' + buildGranularityHtml() + '</div>' +
     '</div>' +
     '<div class="chart-wrap"><canvas id="deeper-chart"></canvas></div>' +
@@ -1372,6 +1443,15 @@ function renderDeeperDive() {
 /* ============================================================
    INIT
    ============================================================ */
+
+// Close KPI picker when clicking anywhere outside the cards
+document.addEventListener('click', function() {
+  if (modal.pickerOpenIdx >= 0) {
+    modal.pickerOpenIdx = -1;
+    refreshKpiCards();
+  }
+});
+
 setTimeout(() => window.location.reload(), 3600000);
 renderAll();
 // Default: load comparison vs previous period on every page load
