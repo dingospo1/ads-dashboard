@@ -501,9 +501,14 @@ def fetch_all_for_range(days: int = 7, offset: int = 0,
 
 
 def get_mc_token(mcc_key: str) -> str:
-    """Get an OAuth token that includes the Content API scope.
-    For service accounts, explicitly requests the content scope.
-    For OAuth, tries the same refresh token (works if authorized with content scope)."""
+    """Get an access token scoped for the Content API (Merchant Center).
+
+    Service accounts: request the content scope directly alongside adwords.
+    OAuth (Happy Mondays): use HAPPY_CONTENT_REFRESH_TOKEN if set — this is a
+    separate refresh token authorized with both adwords + content scopes.
+    Generate it by running generate_content_token.py, then add the result as
+    HAPPY_CONTENT_REFRESH_TOKEN in Render environment variables.
+    """
     mcc = MCCS[mcc_key]
     if mcc["auth"] == "service_account":
         sa_json = mcc["service_account_json"]
@@ -520,9 +525,24 @@ def get_mc_token(mcc_key: str) -> str:
         creds.refresh(Request())
         return creds.token
     else:
-        # OAuth: use same refresh token, Content API accepts adwords-scoped tokens
-        # for accounts where the user has MC access
-        return get_token(mcc_key)
+        # OAuth path: requires a refresh token that was authorized with the content scope.
+        # Generate one with generate_content_token.py and store as HAPPY_CONTENT_REFRESH_TOKEN.
+        content_rt = os.environ.get("HAPPY_CONTENT_REFRESH_TOKEN", "")
+        if not content_rt:
+            raise ValueError(
+                "HAPPY_CONTENT_REFRESH_TOKEN is not set. "
+                "Run generate_content_token.py to create a refresh token with "
+                "the Content API scope, then add it to Render environment variables."
+            )
+        creds = Credentials(
+            token=None,
+            refresh_token=content_rt,
+            token_uri="https://oauth2.googleapis.com/token",
+            client_id=mcc["client_id"],
+            client_secret=mcc["client_secret"],
+        )
+        creds.refresh(Request())
+        return creds.token
 
 
 def fetch_mc_status(merchant_id: int, token: str) -> dict:
@@ -616,6 +636,16 @@ def fetch_all_mc_status(cached_data: dict) -> dict:
             continue
         try:
             token = get_mc_token(mcc_key)
+        except ValueError as e:
+            # Not configured yet (e.g. missing HAPPY_CONTENT_REFRESH_TOKEN)
+            logger.warning("MC token not configured for %s: %s", mcc_key, e)
+            for acc in accounts:
+                result[mcc_key].append({
+                    "name": acc["name"],
+                    "merchantId": acc.get("merchantId", 0),
+                    "error": "Content API not configured. Run generate_content_token.py and set HAPPY_CONTENT_REFRESH_TOKEN in Render.",
+                })
+            continue
         except Exception as e:
             logger.error("MC token failed for %s: %s", mcc_key, e)
             for acc in accounts:
