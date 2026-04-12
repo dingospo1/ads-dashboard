@@ -36,6 +36,8 @@ MCCS = {
     },
 }
 
+# Optional display-name overrides — only used when the API returns an empty descriptiveName.
+# The API's real descriptiveName always takes priority.
 ACCOUNT_NAMES = {
     "8804096601": "Anavrin",
     "3456762782": "Aromely",
@@ -104,7 +106,8 @@ def get_token(mcc_key: str) -> str:
         return creds.token
 
 
-def gaql(token: str, customer_id: str, login_customer_id: str, query: str) -> list:
+def gaql(token: str, customer_id: str, login_customer_id: str, query: str,
+         raise_on_error: bool = False) -> list:
     url = f"{BASE_URL}/customers/{customer_id}/googleAds:searchStream"
     resp = requests.post(
         url,
@@ -118,7 +121,10 @@ def gaql(token: str, customer_id: str, login_customer_id: str, query: str) -> li
         timeout=30,
     )
     if not resp.ok:
-        logger.error("API error %s for account %s: %s", resp.status_code, customer_id, resp.text[:300])
+        msg = f"API error {resp.status_code} for account {customer_id}: {resp.text[:300]}"
+        logger.error(msg)
+        if raise_on_error:
+            raise RuntimeError(msg)
         return []
     chunks = resp.json()
     return [row for chunk in chunks for row in chunk.get("results", [])]
@@ -217,7 +223,7 @@ def fetch_all(days: int = 7, range_type=None, custom_start=None, custom_end=None
 
         for acc in accounts:
             acc_id = str(acc["id"])
-            acc_name = ACCOUNT_NAMES.get(acc_id, acc.get("name", acc_id))
+            acc_name = acc.get("name") or ACCOUNT_NAMES.get(acc_id, acc_id)
             try:
                 campaigns, merchant_id = fetch_campaigns(token, acc_id, mcc["login_customer_id"], start_str, end_str)
                 # Totals from active (ENABLED) campaigns only
@@ -256,7 +262,7 @@ def fetch_deeper(account_name: str, mcc_key: str, start_str: str, end_str: str) 
     target_id = None
     for acc in accounts:
         acc_id = str(acc["id"])
-        name = ACCOUNT_NAMES.get(acc_id, acc.get("name", acc_id))
+        name = acc.get("name") or ACCOUNT_NAMES.get(acc_id, acc_id)
         if name == account_name:
             target_id = acc_id
             break
@@ -370,39 +376,41 @@ def fetch_deeper(account_name: str, mcc_key: str, start_str: str, end_str: str) 
     is_vals = [c["is_sum"] / c["is_count"] for c in camps.values() if c["is_count"] > 0]
     avg_is = (sum(is_vals) / len(is_vals) * 100) if is_vals else 0
 
-    # Product level (Shopping only, graceful fallback)
+    # Product level (Shopping/PMax only, graceful fallback)
+    # Note: _by_conversion_date metrics are not available on shopping_performance_view —
+    # use standard conversions_value / conversions here (product breakdown, not period comparison).
     prod_list = []
     try:
         prod_rows = gaql(token, target_id, login_id, f"""
             SELECT segments.product_title,
             metrics.cost_micros,
-            metrics.conversions_value_by_conversion_date,
-            metrics.conversions_by_conversion_date,
+            metrics.conversions_value,
+            metrics.conversions,
             metrics.clicks, metrics.impressions
             FROM shopping_performance_view
             WHERE segments.date BETWEEN '{start_str}' AND '{end_str}'
-        """)
+        """, raise_on_error=True)
         products = {}
         for r in prod_rows:
             title = r["segments"].get("productTitle") or "(no title)"
             if title not in products:
                 products[title] = {"name": title, "cost": 0, "revenue": 0,
                                    "conversions": 0, "clicks": 0, "impressions": 0}
-            products[title]["cost"] += int(r["metrics"].get("costMicros", 0)) / 1e6
-            products[title]["revenue"] += float(r["metrics"].get("conversionsValueByConversionDate", 0))
-            products[title]["conversions"] += float(r["metrics"].get("conversionsByConversionDate", 0))
-            products[title]["clicks"] += int(r["metrics"].get("clicks", 0))
+            products[title]["cost"]        += int(r["metrics"].get("costMicros", 0)) / 1e6
+            products[title]["revenue"]     += float(r["metrics"].get("conversionsValue", 0))
+            products[title]["conversions"] += float(r["metrics"].get("conversions", 0))
+            products[title]["clicks"]      += int(r["metrics"].get("clicks", 0))
             products[title]["impressions"] += int(r["metrics"].get("impressions", 0))
 
         prod_list = sorted(products.values(), key=lambda x: x["cost"], reverse=True)[:100]
         for p in prod_list:
-            p["cost"] = round(p["cost"], 2)
-            p["revenue"] = round(p["revenue"], 2)
+            p["cost"]        = round(p["cost"], 2)
+            p["revenue"]     = round(p["revenue"], 2)
             p["conversions"] = round(p["conversions"], 1)
-            p["roas"] = round(p["revenue"] / p["cost"], 2) if p["cost"] > 0 else 0
-            p["cpc"] = round(p["cost"] / p["clicks"], 2) if p["clicks"] > 0 else 0
-            p["ctr"] = round(p["clicks"] / p["impressions"] * 100, 2) if p["impressions"] > 0 else 0
-            p["aov"] = round(p["revenue"] / p["conversions"], 2) if p["conversions"] > 0 else 0
+            p["roas"]        = round(p["revenue"] / p["cost"], 2) if p["cost"] > 0 else 0
+            p["cpc"]         = round(p["cost"] / p["clicks"], 2) if p["clicks"] > 0 else 0
+            p["ctr"]         = round(p["clicks"] / p["impressions"] * 100, 2) if p["impressions"] > 0 else 0
+            p["aov"]         = round(p["revenue"] / p["conversions"], 2) if p["conversions"] > 0 else 0
     except Exception as e:
         logger.warning("Product fetch failed for %s: %s", account_name, e)
 
@@ -452,7 +460,7 @@ def fetch_all_for_range(days: int = 7, offset: int = 0,
 
         for acc in accounts:
             acc_id = str(acc["id"])
-            acc_name = ACCOUNT_NAMES.get(acc_id, acc.get("name", acc_id))
+            acc_name = acc.get("name") or ACCOUNT_NAMES.get(acc_id, acc_id)
             try:
                 rows = gaql(token, acc_id, mcc["login_customer_id"],
                     f"SELECT campaign.name, metrics.cost_micros, "

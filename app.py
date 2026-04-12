@@ -12,7 +12,7 @@ from flask import Flask, render_template, jsonify, request
 
 from fetch_data import (
     fetch_all, fetch_all_for_range, fetch_deeper, compute_date_range,
-    fetch_all_mc_status
+    fetch_all_mc_status, get_token, list_child_accounts, MCCS
 )
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -232,6 +232,20 @@ def api_mc_status():
     except Exception as e:
         logger.error("MC status fetch failed: %s", e)
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/accounts")
+def api_accounts():
+    """Debug endpoint — returns raw account IDs and descriptiveNames from the Google Ads API."""
+    result = {}
+    for mcc_key, mcc in MCCS.items():
+        try:
+            token = get_token(mcc_key)
+            accounts = list_child_accounts(token, mcc["login_customer_id"])
+            result[mcc_key] = [{"id": str(a["id"]), "name": a["name"]} for a in accounts]
+        except Exception as e:
+            result[mcc_key] = {"error": str(e)}
+    return jsonify(result)
 
 
 @app.route("/api/refresh", methods=["POST"])
