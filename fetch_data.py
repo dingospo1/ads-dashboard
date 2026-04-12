@@ -568,7 +568,7 @@ def fetch_mc_status(merchant_id: int, token: str) -> dict:
     Returns a dict with total, approved, disapproved, pending counts and top disapproval reasons."""
     base = f"https://shoppingcontent.googleapis.com/content/v2.1/{merchant_id}/productstatuses"
     headers = {"Authorization": f"Bearer {token}"}
-    params = {"maxResults": 250, "fields": "resources(status,destinationStatuses),nextPageToken"}
+    params = {"maxResults": 250}
 
     all_statuses = []
     page_token = None
@@ -589,8 +589,12 @@ def fetch_mc_status(merchant_id: int, token: str) -> dict:
             logger.warning("MC auth error %s for merchant %s", resp.status_code, merchant_id)
             return {"error": f"Access denied (HTTP {resp.status_code}). Token may lack Content API scope."}
         if not resp.ok:
-            logger.warning("MC fetch error %s for merchant %s: %s", resp.status_code, merchant_id, resp.text[:200])
-            return {"error": f"API error {resp.status_code}"}
+            try:
+                err_msg = resp.json().get("error", {}).get("message", resp.text[:200])
+            except Exception:
+                err_msg = resp.text[:200]
+            logger.warning("MC fetch error %s for merchant %s: %s", resp.status_code, merchant_id, err_msg)
+            return {"error": f"API {resp.status_code}: {err_msg}"}
 
         data = resp.json()
         resources = data.get("resources", [])
