@@ -454,8 +454,17 @@ const rangeType = "{{ range_type }}";
 const customStart = "{{ custom_start }}";
 const customEnd = "{{ custom_end }}";
 
-let happyAccounts = JSON.parse(JSON.stringify(rawData.happy || []));
-let upscaleAccounts = JSON.parse(JSON.stringify(rawData.upscale || []));
+// Filter by account ID (reliable) + name fallback for unknown IDs
+const HAPPY_IDS  = new Set(['8804096601','3456762782','5525863856','2614199584','1850620188','9222479033','6248452745','6078059992']);
+const HAPPY_NAMES = ['ring come true']; // accounts without known IDs — matched by name
+const UPSCALE_IDS = new Set(['4999947870','8045249572','6812459700']);
+const UPSCALE_NAMES = ['value canvas prints'];
+
+function inHappyFilter(a)   { return HAPPY_IDS.has(String(a.accountId))   || HAPPY_NAMES.some(n  => (a.name||'').toLowerCase().includes(n)); }
+function inUpscaleFilter(a) { return UPSCALE_IDS.has(String(a.accountId)) || UPSCALE_NAMES.some(n => (a.name||'').toLowerCase().includes(n)); }
+
+let happyAccounts = JSON.parse(JSON.stringify((rawData.happy || []).filter(inHappyFilter)));
+let upscaleAccounts = JSON.parse(JSON.stringify((rawData.upscale || []).filter(inUpscaleFilter)));
 let compareData = null;
 let activeTab = 'happy';
 let campFilter = 'active'; // 'active','paused','all'
