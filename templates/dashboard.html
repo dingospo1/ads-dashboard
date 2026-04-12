@@ -455,13 +455,15 @@ const customStart = "{{ custom_start }}";
 const customEnd = "{{ custom_end }}";
 
 function normName(s) { return (s||'').toLowerCase().replace(/[^a-z0-9]/g,''); }
-const happyNorm  = HAPPY_WHITELIST.map(normName);
-const upscaleNorm = UPSCALE_WHITELIST.map(normName);
+function inWhitelist(apiName, whitelist) {
+  const n = normName(apiName);
+  return whitelist.some(w => { const wn = normName(w); return n === wn || n.includes(wn) || wn.includes(n); });
+}
 let happyAccounts = JSON.parse(JSON.stringify(
-  (rawData.happy || []).filter(a => happyNorm.includes(normName(a.name)))
+  (rawData.happy || []).filter(a => inWhitelist(a.name, HAPPY_WHITELIST))
 ));
 let upscaleAccounts = JSON.parse(JSON.stringify(
-  (rawData.upscale || []).filter(a => upscaleNorm.includes(normName(a.name)))
+  (rawData.upscale || []).filter(a => inWhitelist(a.name, UPSCALE_WHITELIST))
 ));
 let compareData = null;
 let activeTab = 'happy';
