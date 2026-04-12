@@ -54,6 +54,26 @@ def _load_merchant_id_map():
 
 MERCHANT_ID_MAP = _load_merchant_id_map()
 
+# Static account list — fallback when Google Ads API cache is empty (e.g. quota exhausted).
+# Merchant IDs are resolved via MERCHANT_ID_MAP env var.
+STATIC_ACCOUNTS = {
+    "happy": [
+        {"name": "ByAnavrin",            "accountId": "8804096601"},
+        {"name": "Aromely",              "accountId": "3456762782"},
+        {"name": "Don's Liquors",        "accountId": "5525863856"},
+        {"name": "Home Teeth Whitening", "accountId": "2614199584"},
+        {"name": "Lucky Honey",          "accountId": "1850620188"},
+        {"name": "Plum Play UK",         "accountId": "9222479033"},
+        {"name": "Vintage Muscle",       "accountId": "6248452745"},
+        {"name": "Warrior Willpower",    "accountId": "6078059992"},
+    ],
+    "upscale": [
+        {"name": "All Cars Fix", "accountId": "4999947870"},
+        {"name": "SilverAnt",    "accountId": "8045249572"},
+        {"name": "HGV Direct",   "accountId": "6812459700"},
+    ],
+}
+
 # Optional display-name overrides — only used when the API returns an empty descriptiveName.
 # The API's real descriptiveName always takes priority.
 ACCOUNT_NAMES = {
@@ -653,7 +673,7 @@ def fetch_all_mc_status(cached_data: dict) -> dict:
     result = {"happy": [], "upscale": []}
 
     for mcc_key in ["happy", "upscale"]:
-        accounts = cached_data.get(mcc_key, [])
+        accounts = cached_data.get(mcc_key, []) or STATIC_ACCOUNTS.get(mcc_key, [])
         if not accounts:
             continue
         try:
