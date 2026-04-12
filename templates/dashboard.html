@@ -166,12 +166,19 @@ select.ctrl:focus { outline: none; border-color: #34d399; }
 .kpi-value { font-size: 19px; font-weight: 700; }
 .kpi-delta { font-size: 11px; margin-top: 2px; }
 /* Metric pill selector */
-.metric-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.metric-pills { display: flex; flex-wrap: wrap; gap: 6px; }
 .metric-pill { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 20px; border: 1px solid #2a2d3a; background: transparent; cursor: pointer; font-size: 11px; color: #6b7280; transition: all 0.15s; user-select: none; }
 .metric-pill:hover { border-color: #4b5563; color: #9ca3af; }
 .metric-pill.pill-on { color: #e1e4e8; }
 .metric-pill-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; opacity: 0.4; }
 .metric-pill.pill-on .metric-pill-dot { opacity: 1; }
+
+/* Chart controls row (pills + granularity toggle) */
+.chart-controls-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+.gran-ctrl { display: flex; background: #0f1117; border: 1px solid #2a2d3a; border-radius: 6px; overflow: hidden; flex-shrink: 0; align-self: flex-start; }
+.gran-btn { background: none; border: none; color: #6b7280; font-size: 11px; font-weight: 600; padding: 5px 13px; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+.gran-btn:hover { color: #e1e4e8; }
+.gran-btn.gran-active { background: #2a2d3a; color: #e1e4e8; }
 .chart-wrap { background: #1a1d27; border: 1px solid #2a2d3a; border-radius: 8px; padding: 16px 16px 10px; margin-bottom: 22px; height: 290px; position: relative; }
 .chart-wrap canvas { width: 100% !important; height: 100% !important; }
 .th-sort { cursor: pointer; user-select: none; white-space: nowrap; }
@@ -842,6 +849,7 @@ let modal = {
   campFilter: 'active',
   sortCol: 'cost', sortDir: 'desc',
   chartKPIs: ['revenue'],
+  chartGranularity: 'daily',
   campShowAll: false,
   prodSortCol: 'cost', prodSortDir: 'desc', prodShowAll: false,
   data: null, cmpData: null
@@ -862,6 +870,7 @@ function openDeeperDive(accountName, mccKey) {
   modal.campFilter = 'active';
   modal.sortCol = 'cost'; modal.sortDir = 'desc';
   modal.chartKPIs = ['revenue'];
+  modal.chartGranularity = 'daily';
   modal.campShowAll = false;
   modal.prodSortCol = 'cost'; modal.prodSortDir = 'desc'; modal.prodShowAll = false;
   modal.data = null; modal.cmpData = null;
@@ -936,10 +945,12 @@ function buildChartSelectorHtml() {
   }).join('');
 }
 
-// Targeted refresh — pill selector + chart only (no scroll jump)
+// Targeted refresh — pill selector + granularity + chart only (no scroll jump)
 function refreshKpiAndChart() {
   const pills = document.getElementById('modal-chart-pills');
   if (pills) pills.innerHTML = buildChartSelectorHtml();
+  const gran = document.getElementById('modal-gran-ctrl');
+  if (gran) gran.innerHTML = buildGranularityHtml();
   buildDeeperChart(modal.data);
 }
 
@@ -998,6 +1009,7 @@ function fetchDeeperData() {
     .then(d => {
       if (d.error) { document.getElementById('modal-content').innerHTML = '<div class="modal-loading" style="color:#f87171">Error: ' + d.error + '</div>'; return; }
       modal.data = d;
+      modal.chartGranularity = getAutoGranularity(d.daily);
       if (modal.compareMode !== 'none') fetchDeeperCompare();
       else renderDeeperDive();
     })
@@ -1035,6 +1047,106 @@ function augmentDaily(daily) {
     convRate: x.clicks > 0 ? x.conversions / x.clicks * 100 : 0,
     aov:      x.conversions > 0 ? x.revenue / x.conversions : 0,
   }));
+}
+
+/* ============================================================
+   GRANULARITY HELPERS
+   ============================================================ */
+function getMondayKey(dateStr) {
+  // Returns YYYY-MM-DD of the Monday of the given date's week
+  const d = new Date(dateStr + 'T00:00:00');
+  const day = d.getDay(); // 0=Sun
+  const diff = day === 0 ? -6 : 1 - day;
+  d.setDate(d.getDate() + diff);
+  return d.toISOString().slice(0, 10);
+}
+
+function getMonthKey(dateStr) { return dateStr.slice(0, 7); }
+
+function fmtGranLabel(key, granularity) {
+  if (granularity === 'daily') {
+    // MM-DD
+    return key.slice(5);
+  }
+  if (granularity === 'weekly') {
+    // "Jan 6"
+    const d = new Date(key + 'T00:00:00');
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }
+  // monthly: "Jan 2024"
+  const [yr, mo] = key.split('-');
+  const d = new Date(parseInt(yr), parseInt(mo) - 1, 1);
+  return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+}
+
+function fmtGranTooltipTitle(key, granularity) {
+  if (granularity === 'daily') return key;
+  if (granularity === 'weekly') {
+    const d = new Date(key + 'T00:00:00');
+    return 'Week of ' + d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+  const [yr, mo] = key.split('-');
+  const d = new Date(parseInt(yr), parseInt(mo) - 1, 1);
+  return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+}
+
+function aggregateData(daily, granularity) {
+  const rows = daily || [];
+  if (granularity === 'daily') return augmentDaily(rows);
+
+  const groups = {};
+  const order = [];
+
+  for (const r of rows) {
+    const key = granularity === 'weekly' ? getMondayKey(r.date) : getMonthKey(r.date);
+    if (!groups[key]) {
+      groups[key] = { key, cost: 0, revenue: 0, conversions: 0, clicks: 0, impressions: 0 };
+      order.push(key);
+    }
+    const g = groups[key];
+    g.cost        += r.cost;
+    g.revenue     += r.revenue;
+    g.conversions += r.conversions;
+    g.clicks      += r.clicks;
+    g.impressions += r.impressions;
+  }
+
+  return order.map(k => {
+    const g = groups[k];
+    return {
+      ...g,
+      date:     k,
+      roas:     g.cost > 0 ? g.revenue / g.cost : 0,
+      ctr:      g.impressions > 0 ? g.clicks / g.impressions * 100 : 0,
+      cpc:      g.clicks > 0 ? g.cost / g.clicks : 0,
+      convRate: g.clicks > 0 ? g.conversions / g.clicks * 100 : 0,
+      aov:      g.conversions > 0 ? g.revenue / g.conversions : 0,
+    };
+  });
+}
+
+function getAutoGranularity(daily) {
+  const n = (daily || []).length;
+  if (n > 90) return 'monthly';
+  if (n > 21) return 'weekly';
+  return 'daily';
+}
+
+function buildGranularityHtml() {
+  const opts = [
+    { key: 'daily',   label: 'Daily' },
+    { key: 'weekly',  label: 'Weekly' },
+    { key: 'monthly', label: 'Monthly' },
+  ];
+  return opts.map(o =>
+    '<button class="gran-btn' + (modal.chartGranularity === o.key ? ' gran-active' : '') +
+    '" onclick="changeGranularity(\'' + o.key + '\')">' + o.label + '</button>'
+  ).join('');
+}
+
+function changeGranularity(g) {
+  modal.chartGranularity = g;
+  refreshKpiAndChart();
 }
 
 function buildKpiGridHtml(d, cmp) {
@@ -1132,8 +1244,10 @@ function buildDeeperChart(d) {
   if (deeperChart) { deeperChart.destroy(); deeperChart = null; }
   const ctx = document.getElementById('deeper-chart');
   if (!ctx || !d || !d.daily || d.daily.length === 0) return;
-  const daily = augmentDaily(d.daily);
-  const labels = daily.map(x => x.date.slice(5));
+
+  const gran = modal.chartGranularity || 'daily';
+  const points = aggregateData(d.daily, gran);
+  const labels = points.map(x => fmtGranLabel(x.date, gran));
   const selected = CHART_KPIS.filter(k => modal.chartKPIs.includes(k.key));
   if (!selected.length) return;
 
@@ -1145,11 +1259,11 @@ function buildDeeperChart(d) {
 
   const datasets = selected.map(k => ({
     label: k.label,
-    data: daily.map(x => +(x[k.key]||0).toFixed(4)),
+    data: points.map(x => +(x[k.key]||0).toFixed(4)),
     borderColor: k.color,
     backgroundColor: k.color + '20',
     borderWidth: 2.5,
-    pointRadius: daily.length <= 14 ? 4 : 2,
+    pointRadius: points.length <= 14 ? 4 : 2,
     pointHoverRadius: 6,
     pointBackgroundColor: k.color,
     tension: 0.35,
@@ -1158,7 +1272,7 @@ function buildDeeperChart(d) {
   }));
 
   const scales = {
-    x: { ticks:{color:'#6b7280',font:{size:10}}, grid:{color:'rgba(255,255,255,0.05)'}, border:{color:'#2a2d3a'} },
+    x: { ticks:{color:'#6b7280',font:{size:10},maxRotation:45}, grid:{color:'rgba(255,255,255,0.05)'}, border:{color:'#2a2d3a'} },
     yL: { type:'linear', position:'left', ticks:{color:'#9ca3af',font:{size:10},callback:v=>AXIS_FMT[leftType](v)}, grid:{color:'rgba(255,255,255,0.05)'}, border:{color:'#2a2d3a'} },
   };
   if (rightType) {
@@ -1170,7 +1284,7 @@ function buildDeeperChart(d) {
     data: { labels, datasets },
     options: {
       responsive: true, maintainAspectRatio: false,
-      animation: { duration: 350, easing: 'easeInOutQuart' },
+      animation: { duration: 280, easing: 'easeInOutQuart' },
       interaction: { mode:'index', intersect:false },
       plugins: {
         legend: {
@@ -1181,6 +1295,7 @@ function buildDeeperChart(d) {
           backgroundColor:'#1a1d27', borderColor:'#3a3d4a', borderWidth:1,
           titleColor:'#e1e4e8', bodyColor:'#9ca3af', padding:10, caretSize:5,
           callbacks: {
+            title: items => fmtGranTooltipTitle(points[items[0].dataIndex]?.date || '', gran),
             label: ctx => {
               const k = CHART_KPIS.find(c=>c.label===ctx.dataset.label);
               return ' ' + ctx.dataset.label + ': ' + (k ? TIP_FMT[k.type](ctx.raw) : ctx.raw);
@@ -1243,7 +1358,10 @@ function renderDeeperDive() {
     '<div class="modal-date-label">' + d.startDate + ' &rarr; ' + d.endDate +
     (cmp ? ' &nbsp;&middot;&nbsp; vs ' + cmp.startDate + ' &rarr; ' + cmp.endDate : '') + '</div>' +
     '<div id="modal-kpi-grid" class="kpi-grid">' + buildKpiGridHtml(d, cmp) + '</div>' +
-    '<div id="modal-chart-pills" class="metric-pills">' + buildChartSelectorHtml() + '</div>' +
+    '<div class="chart-controls-row">' +
+      '<div id="modal-chart-pills" class="metric-pills">' + buildChartSelectorHtml() + '</div>' +
+      '<div id="modal-gran-ctrl" class="gran-ctrl">' + buildGranularityHtml() + '</div>' +
+    '</div>' +
     '<div class="chart-wrap"><canvas id="deeper-chart"></canvas></div>' +
     '<div id="modal-camp-section">' + buildCampHtml(d, cmp) + '</div>' +
     '<div id="modal-prod-section">' + buildProdHtml(d) + '</div>';
