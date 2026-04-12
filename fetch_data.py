@@ -539,14 +539,30 @@ def fetch_all_for_range(days: int = 7, offset: int = 0,
 
 
 def get_mc_token(mcc_key: str) -> str:
-    """Get an access token scoped for the Content API (Merchant Center).
+    """Get a Content API access token for a given MCC.
 
-    Service accounts: request the content scope directly alongside adwords.
-    OAuth (Happy Mondays): use HAPPY_CONTENT_REFRESH_TOKEN if set — this is a
-    separate refresh token authorized with both adwords + content scopes.
-    Generate it by running generate_content_token.py, then add the result as
-    HAPPY_CONTENT_REFRESH_TOKEN in Render environment variables.
+    For both Happy Mondays (OAuth) and Upscale (service account or OAuth override):
+    - If UPSCALE_CONTENT_REFRESH_TOKEN is set, Upscale uses OAuth just like Happy Mondays.
+    - Otherwise Upscale falls back to the service account.
+    - Happy Mondays always uses HAPPY_CONTENT_REFRESH_TOKEN.
+    Generate refresh tokens by running generate_content_token.py locally.
     """
+    # OAuth override for Upscale (uses same OAuth client as Happy Mondays)
+    if mcc_key == "upscale":
+        upscale_rt = os.environ.get("UPSCALE_CONTENT_REFRESH_TOKEN", "")
+        if upscale_rt:
+            client_id     = os.environ.get("HAPPY_CLIENT_ID", "")
+            client_secret = os.environ.get("HAPPY_CLIENT_SECRET", "")
+            creds = Credentials(
+                token=None,
+                refresh_token=upscale_rt,
+                token_uri="https://oauth2.googleapis.com/token",
+                client_id=client_id,
+                client_secret=client_secret,
+            )
+            creds.refresh(Request())
+            return creds.token
+
     mcc = MCCS[mcc_key]
     if mcc["auth"] == "service_account":
         sa_json = mcc["service_account_json"]
@@ -563,8 +579,6 @@ def get_mc_token(mcc_key: str) -> str:
         creds.refresh(Request())
         return creds.token
     else:
-        # OAuth path: requires a refresh token that was authorized with the content scope.
-        # Generate one with generate_content_token.py and store as HAPPY_CONTENT_REFRESH_TOKEN.
         content_rt = os.environ.get("HAPPY_CONTENT_REFRESH_TOKEN", "")
         if not content_rt:
             raise ValueError(
