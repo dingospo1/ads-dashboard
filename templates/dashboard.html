@@ -939,7 +939,7 @@ let modal = {
   compareMode: 'period',
   campFilter: 'active',
   sortCol: 'cost', sortDir: 'desc',
-  activeCardIdx: 0,
+  activeCardIdxs: new Set([0]),
   cardKPIs: [...DEFAULT_CARD_KPIS],
   pickerOpenIdx: -1,
   chartGranularity: 'daily',
@@ -964,7 +964,7 @@ function openDeeperDive(accountName, mccKey) {
   modal.compareMode = 'period';
   modal.campFilter = 'active';
   modal.sortCol = 'cost'; modal.sortDir = 'desc';
-  modal.activeCardIdx = 0;
+  modal.activeCardIdxs = new Set([0]);
   modal.cardKPIs = [...DEFAULT_CARD_KPIS];
   modal.pickerOpenIdx = -1;
   modal.chartGranularity = 'daily';
@@ -1028,21 +1028,24 @@ function loadCardPrefs() {
     if (saved) { const p = JSON.parse(saved); if (Array.isArray(p) && p.length === 4) modal.cardKPIs = p; }
   } catch(e) {}
   try {
-    const idx = localStorage.getItem('dd_active_card');
-    if (idx !== null) modal.activeCardIdx = Math.max(0, Math.min(parseInt(idx), modal.cardKPIs.length - 1));
+    const saved = localStorage.getItem('dd_active_cards');
+    if (saved) {
+      const arr = JSON.parse(saved);
+      if (Array.isArray(arr) && arr.length > 0) modal.activeCardIdxs = new Set(arr.map(Number));
+    }
   } catch(e) {}
 }
 
 function saveCardPrefs() {
   try { localStorage.setItem('dd_card_kpis', JSON.stringify(modal.cardKPIs)); } catch(e) {}
-  try { localStorage.setItem('dd_active_card', String(modal.activeCardIdx)); } catch(e) {}
+  try { localStorage.setItem('dd_active_cards', JSON.stringify([...modal.activeCardIdxs])); } catch(e) {}
 }
 
 function buildKpiCardsHtml(d, cmp) {
   return modal.cardKPIs.map((key, idx) => {
     const cfg = KPI_CONFIG[key];
     if (!cfg) return '';
-    const isActive = idx === modal.activeCardIdx;
+    const isActive = modal.activeCardIdxs.has(idx);
     const raw = cfg.getVal(d);
     const cmpRaw = cfg.getCmp(cmp);
     const valStr = (raw !== null && raw !== undefined) ? TIP_FMT[cfg.type](raw) : '—';
@@ -1061,9 +1064,9 @@ function buildKpiCardsHtml(d, cmp) {
     return '<div class="kpi-card' + (isActive ? ' kpi-active' : '') + '" style="' + borderStyle + '" onclick="setActiveCard(' + idx + ')">' +
       '<div class="kpi-card-label">' +
         '<span>' + cfg.label + '</span>' +
-        '<button class="kpi-edit-btn" onclick="openKpiPicker(event,' + idx + ')" title="Change metric">&#9998;</button>' +
+        '<button class="kpi-edit-btn" onclick="openKpiPicker(event,' + idx + ')" title="Swap metric">&#9998;</button>' +
       '</div>' +
-      '<div class="kpi-card-value">' + valStr + '</div>' +
+      '<div class="kpi-card-value" style="' + (isActive ? 'color:' + cfg.color + ';' : '') + '">' + valStr + '</div>' +
       deltaHtml + pickerHtml +
     '</div>';
   }).join('');
@@ -1083,7 +1086,12 @@ function buildKpiPickerHtml(cardIdx) {
 
 function setActiveCard(idx) {
   if (modal.pickerOpenIdx >= 0) { modal.pickerOpenIdx = -1; refreshKpiCards(); return; }
-  modal.activeCardIdx = idx;
+  if (modal.activeCardIdxs.has(idx)) {
+    // Don't deselect if it's the only active card
+    if (modal.activeCardIdxs.size > 1) modal.activeCardIdxs.delete(idx);
+  } else {
+    modal.activeCardIdxs.add(idx);
+  }
   saveCardPrefs();
   refreshKpiAndChart();
 }
@@ -1099,7 +1107,8 @@ function setCardKpi(event, cardIdx, key) {
   modal.cardKPIs[cardIdx] = key;
   modal.pickerOpenIdx = -1;
   saveCardPrefs();
-  if (modal.activeCardIdx === cardIdx) refreshKpiAndChart();
+  // If the swapped card is active, redraw chart; otherwise just refresh cards
+  if (modal.activeCardIdxs.has(cardIdx)) refreshKpiAndChart();
   else refreshKpiCards();
 }
 
@@ -1112,9 +1121,8 @@ function refreshKpiCards() {
 function refreshKpiAndChart() {
   refreshKpiCards();
   const lbl = document.getElementById('modal-chart-label');
-  const activeKey = modal.cardKPIs[modal.activeCardIdx];
-  const cfg = KPI_CONFIG[activeKey];
-  if (lbl && cfg) lbl.textContent = cfg.label + ' over time';
+  const activeKeys = [...modal.activeCardIdxs].sort().map(i => modal.cardKPIs[i]).filter(k => KPI_CONFIG[k] && !KPI_CONFIG[k].noChart);
+  if (lbl) lbl.textContent = (activeKeys.map(k => KPI_CONFIG[k].label).join(' & ') || 'Select a metric') + ' over time';
   const gran = document.getElementById('modal-gran-ctrl');
   if (gran) gran.innerHTML = buildGranularityHtml();
   buildDeeperChart(modal.data);
@@ -1381,19 +1389,19 @@ function buildDeeperChart(d) {
   const wrap = document.querySelector('.chart-wrap');
   if (!d || !d.daily || d.daily.length === 0) return;
 
-  const activeKey = modal.cardKPIs[modal.activeCardIdx] || 'revenue';
-  const cfg = KPI_CONFIG[activeKey];
-  if (!cfg) return;
+  // Collect active, chartable KPIs in order
+  const activeEntries = [...modal.activeCardIdxs].sort()
+    .map(i => ({ idx: i, key: modal.cardKPIs[i], cfg: KPI_CONFIG[modal.cardKPIs[i]] }))
+    .filter(e => e.cfg && !e.cfg.noChart);
 
-  // noChart metrics (impressionShare, targetRoas) — show message
-  if (cfg.noChart) {
-    if (wrap) wrap.innerHTML = '<div class="chart-no-data">No daily trend available for ' + cfg.label + '</div>';
+  if (activeEntries.length === 0) {
+    if (wrap) wrap.innerHTML = '<div class="chart-no-data">No daily trend available for the selected metric</div>';
     return;
   }
+
   if (wrap && !wrap.querySelector('canvas')) {
     wrap.innerHTML = '<canvas id="deeper-chart"></canvas>';
   }
-
   const ctx = document.getElementById('deeper-chart');
   if (!ctx) return;
 
@@ -1401,47 +1409,85 @@ function buildDeeperChart(d) {
   const points = aggregateData(d.daily, gran);
   const labels = points.map(x => fmtGranLabel(x.date, gran));
 
-  const dataset = {
-    label: cfg.label,
+  // Build datasets — first gets left axis (y), rest get right axis (y1)
+  const datasets = activeEntries.map((e, i) => ({
+    label: e.cfg.label,
     data: points.map(x => {
-      const v = x[activeKey];
+      const v = x[e.key];
       return (v !== undefined && v !== null) ? +v.toFixed(4) : null;
     }),
-    borderColor: cfg.color,
-    backgroundColor: cfg.color + '18',
+    borderColor: e.cfg.color,
+    backgroundColor: i === 0 ? e.cfg.color + '18' : 'transparent',
     borderWidth: 2.5,
     pointRadius: points.length <= 14 ? 4 : 2,
     pointHoverRadius: 7,
-    pointBackgroundColor: cfg.color,
+    pointBackgroundColor: e.cfg.color,
     pointBorderColor: '#0f1117',
     pointBorderWidth: 1.5,
     tension: 0.38,
-    fill: true,
+    fill: i === 0,
     spanGaps: true,
+    yAxisID: i === 0 ? 'y' : 'y1',
+    _type: e.cfg.type,
+  }));
+
+  // Build scales — always have left axis; add right only when 2+ metrics
+  const scales = {
+    x: {
+      ticks: { color:'#6b7280', font:{size:10}, maxRotation:40, maxTicksLimit:10 },
+      grid: { color:'rgba(255,255,255,0.04)' },
+      border: { color:'#2a2d3a' }
+    },
+    y: {
+      position: 'left',
+      ticks: { color: activeEntries[0].cfg.color, font:{size:10}, callback: v => AXIS_FMT[activeEntries[0].cfg.type](v), maxTicksLimit:6 },
+      grid: { color:'rgba(255,255,255,0.04)' },
+      border: { color:'#2a2d3a' }
+    },
   };
+  if (activeEntries.length > 1) {
+    scales.y1 = {
+      position: 'right',
+      ticks: { color: activeEntries[1].cfg.color, font:{size:10}, callback: v => AXIS_FMT[activeEntries[1].cfg.type](v), maxTicksLimit:6 },
+      grid: { drawOnChartArea: false },
+      border: { color:'#2a2d3a' }
+    };
+  }
 
   deeperChart = new Chart(ctx, {
     type: 'line',
-    data: { labels, datasets: [dataset] },
+    data: { labels, datasets },
     options: {
       responsive: true, maintainAspectRatio: false,
       animation: { duration: 260, easing: 'easeInOutQuart' },
       interaction: { mode:'index', intersect:false },
       plugins: {
-        legend: { display: false },
+        legend: {
+          display: activeEntries.length > 1,
+          labels: { color:'#9ca3af', font:{size:11}, boxWidth:12, padding:16,
+            generateLabels: chart => chart.data.datasets.map((ds, i) => ({
+              text: ds.label, fillStyle: ds.borderColor, strokeStyle: ds.borderColor,
+              lineWidth: 2, hidden: false, index: i,
+            }))
+          }
+        },
         tooltip: {
-          backgroundColor:'#1a1d27', borderColor: cfg.color, borderWidth:1,
+          backgroundColor:'#1a1d27',
+          borderColor: activeEntries.length === 1 ? activeEntries[0].cfg.color : '#2a2d3a',
+          borderWidth: 1,
           titleColor:'#e1e4e8', bodyColor:'#9ca3af', padding:11, caretSize:5,
           callbacks: {
             title: items => fmtGranTooltipTitle(points[items[0].dataIndex]?.date || '', gran),
-            label: ctx => ' ' + cfg.label + ': ' + TIP_FMT[cfg.type](ctx.raw),
+            label: ctx => {
+              const ds = datasets[ctx.datasetIndex];
+              if (ctx.raw === null || ctx.raw === undefined) return null;
+              return ' ' + ds.label + ': ' + TIP_FMT[ds._type](ctx.raw);
+            },
+            labelColor: ctx => ({ borderColor: datasets[ctx.datasetIndex].borderColor, backgroundColor: datasets[ctx.datasetIndex].borderColor }),
           }
         }
       },
-      scales: {
-        x: { ticks:{color:'#6b7280',font:{size:10},maxRotation:40,maxTicksLimit:10}, grid:{color:'rgba(255,255,255,0.04)'}, border:{color:'#2a2d3a'} },
-        y: { position:'left', ticks:{color:'#9ca3af',font:{size:10},callback:v=>AXIS_FMT[cfg.type](v),maxTicksLimit:6}, grid:{color:'rgba(255,255,255,0.04)'}, border:{color:'#2a2d3a'} },
-      },
+      scales,
     }
   });
 }
@@ -1617,15 +1663,15 @@ function renderDeeperDive() {
   if (!d) return;
   const cmp = modal.cmpData;
 
-  const activeKey = modal.cardKPIs[modal.activeCardIdx] || 'revenue';
-  const activeCfg = KPI_CONFIG[activeKey];
+  const activeKeys = [...modal.activeCardIdxs].sort().map(i => modal.cardKPIs[i]).filter(k => KPI_CONFIG[k] && !KPI_CONFIG[k].noChart);
+  const chartLabel = (activeKeys.map(k => KPI_CONFIG[k].label).join(' & ') || 'Select a metric') + ' over time';
 
   document.getElementById('modal-content').innerHTML =
     '<div class="modal-date-label">' + d.startDate + ' &rarr; ' + d.endDate +
     (cmp ? ' &nbsp;&middot;&nbsp; vs ' + cmp.startDate + ' &rarr; ' + cmp.endDate : '') + '</div>' +
     '<div id="modal-kpi-grid" class="kpi-row">' + buildKpiCardsHtml(d, cmp) + '</div>' +
     '<div class="chart-header">' +
-      '<span id="modal-chart-label" class="chart-metric-label">' + (activeCfg ? activeCfg.label + ' over time' : '') + '</span>' +
+      '<span id="modal-chart-label" class="chart-metric-label">' + chartLabel + '</span>' +
       '<div id="modal-gran-ctrl" class="gran-ctrl">' + buildGranularityHtml() + '</div>' +
     '</div>' +
     '<div class="chart-wrap"><canvas id="deeper-chart"></canvas></div>' +
