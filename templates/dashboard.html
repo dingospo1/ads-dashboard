@@ -205,7 +205,6 @@ select.ctrl:focus { outline: none; border-color: #34d399; }
   <div class="stat-box"><div class="stat-value" id="s-cost">${{ "{:,.0f}".format(total_cost) }}</div><div class="stat-label">Cost</div><div class="stat-delta" id="sd-cost"></div></div>
   <div class="stat-box"><div class="stat-value" style="color:#34d399" id="s-rev">${{ "{:,.0f}".format(total_revenue) }}</div><div class="stat-label">Revenue</div><div class="stat-delta" id="sd-rev"></div></div>
   <div class="stat-box"><div class="stat-value" style="color:#34d399" id="s-roas">{{ (total_roas * 100)|int }}%</div><div class="stat-label">Blended ROAS</div><div class="stat-delta" id="sd-roas"></div></div>
-  <div class="stat-box"><div class="stat-value" style="color:#9ca3af">{{ num_campaigns }}</div><div class="stat-label">Campaigns</div></div>
 </div>
 
 <div class="tab-bar">
