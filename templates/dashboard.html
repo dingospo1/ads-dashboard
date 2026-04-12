@@ -465,7 +465,7 @@ const BLOCKED_NAMES = ['pixalot','meloqdevices','exceptionalfire','nativemed','u
 
 function isBlocked(a) { const n = (a.name||'').toLowerCase().replace(/\s/g,''); return BLOCKED_NAMES.some(b => n.includes(b.replace(/\s/g,''))); }
 function inHappyFilter(a)   { return !isBlocked(a) && (HAPPY_IDS.has(String(a.accountId))   || HAPPY_NAMES.some(n => (a.name||'').toLowerCase().includes(n))); }
-function inUpscaleFilter(a) { return !isBlocked(a) && (UPSCALE_IDS.has(String(a.accountId)) || UPSCALE_NAMES.some(n => (a.name||'').toLowerCase().includes(n))); }
+function inUpscaleFilter(a) { return !isBlocked(a); }
 
 let happyAccounts = JSON.parse(JSON.stringify((rawData.happy || []).filter(inHappyFilter)));
 let upscaleAccounts = JSON.parse(JSON.stringify((rawData.upscale || []).filter(inUpscaleFilter)));
