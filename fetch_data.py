@@ -211,6 +211,56 @@ def fetch_all(days: int = 7) -> dict:
     return data
 
 
+def fetch_all_for_range(days: int = 7, offset: int = 0) -> dict:
+    """Fetch account-level totals for a shifted date range.
+    offset=7 means the period starts 7 extra days in the past.
+    Used for comparison (previous period / previous year).
+    """
+    logger.info("Starting comparison fetch: %dd with offset %d...", days, offset)
+    data = {"happy": [], "upscale": []}
+
+    for mcc_key in ["happy", "upscale"]:
+        mcc = MCCS[mcc_key]
+        try:
+            token = get_token(mcc_key)
+        except Exception as e:
+            logger.error("Auth failed for %s: %s", mcc_key, e)
+            continue
+
+        accounts = list_child_accounts(token, mcc["login_customer_id"])
+
+        for acc in accounts:
+            acc_id = str(acc["id"])
+            acc_name = ACCOUNT_NAMES.get(acc_id, acc.get("name", acc_id))
+            try:
+                end = datetime.now() - timedelta(days=1 + offset)
+                start = end - timedelta(days=days - 1)
+                start_str = start.strftime("%Y-%m-%d")
+                end_str = end.strftime("%Y-%m-%d")
+
+                rows = gaql(
+                    token, acc_id, mcc["login_customer_id"],
+                    f"SELECT metrics.cost_micros, metrics.conversions_value_by_conversion_date "
+                    f"FROM campaign WHERE campaign.status = 'ENABLED' "
+                    f"AND segments.date BETWEEN '{start_str}' AND '{end_str}'"
+                )
+
+                total_cost = sum(int(r["metrics"].get("costMicros", 0)) / 1e6 for r in rows)
+                total_revenue = sum(float(r["metrics"].get("conversionsValueByConversionDate", 0)) for r in rows)
+
+                data[mcc_key].append({
+                    "name": acc_name,
+                    "totalCost": round(total_cost, 2),
+                    "totalRevenue": round(total_revenue, 2),
+                    "totalRoas": round(total_revenue / total_cost, 2) if total_cost > 0 else 0,
+                })
+                logger.info("  [cmp] %s: $%.0f cost, $%.0f rev", acc_name, total_cost, total_revenue)
+            except Exception as e:
+                logger.error("  [cmp] Failed %s: %s", acc_name, e)
+
+    return data
+
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     result = fetch_all()

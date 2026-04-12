@@ -1,6 +1,6 @@
 """
 Google Ads Performance Dashboard — Flask app with hourly auto-refresh.
-Supports multiple time ranges: 7, 14, 30, 90, 180, 365 days.
+Supports multiple time ranges and comparison periods.
 """
 
 import os
@@ -11,7 +11,7 @@ from datetime import datetime
 
 from flask import Flask, render_template, jsonify, request
 
-from fetch_data import fetch_all
+from fetch_data import fetch_all, fetch_all_for_range
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -20,14 +20,15 @@ app = Flask(__name__)
 
 VALID_DAYS = [7, 14, 30, 90, 180, 365]
 
-# In-memory data store keyed by days
+# In-memory data store: _data[days] = current data, _compare[(days, mode)] = comparison data
 _data = {}
+_compare = {}
 _lock = threading.Lock()
 
 
 def refresh_data():
     """Fetch fresh data for all time ranges."""
-    global _data
+    global _data, _compare
     for days in VALID_DAYS:
         try:
             new_data = fetch_all(days=days)
@@ -36,6 +37,9 @@ def refresh_data():
             logger.info("Data refreshed for %dd at %s", days, new_data.get("fetched_at", "unknown"))
         except Exception as e:
             logger.error("Data refresh failed for %dd: %s", days, e)
+    # Clear comparison cache on refresh so it gets re-fetched with fresh tokens
+    with _lock:
+        _compare.clear()
 
 
 def start_scheduler():
@@ -86,9 +90,40 @@ def api_data():
         return jsonify(_data.get(days, {}))
 
 
+@app.route("/api/compare")
+def api_compare():
+    """Return comparison data for a given time range and mode.
+    mode=period: previous N days (e.g. 7d current = day -8 to -14)
+    mode=year: same N days one year ago
+    """
+    days = request.args.get("days", 7, type=int)
+    mode = request.args.get("mode", "period")
+    if days not in VALID_DAYS or mode not in ("period", "year"):
+        return jsonify({"error": "invalid params"}), 400
+
+    cache_key = (days, mode)
+    with _lock:
+        if cache_key in _compare:
+            return jsonify(_compare[cache_key])
+
+    # Compute offset
+    if mode == "period":
+        offset_days = days  # shift back by N days
+    else:
+        offset_days = 365  # shift back by 1 year
+
+    try:
+        compare_data = fetch_all_for_range(days=days, offset=offset_days)
+        with _lock:
+            _compare[cache_key] = compare_data
+        return jsonify(compare_data)
+    except Exception as e:
+        logger.error("Compare fetch failed for %dd/%s: %s", days, mode, e)
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/api/refresh", methods=["POST"])
 def api_refresh():
-    """Manual refresh endpoint."""
     threading.Thread(target=refresh_data, daemon=True).start()
     return jsonify({"status": "refresh started"})
 
