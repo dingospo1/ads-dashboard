@@ -147,7 +147,7 @@ def fetch_campaigns(token: str, account_id: str, login_customer_id: str,
     """Returns (campaigns_list, merchant_id) where merchant_id is the linked MC account (or 0)."""
     rows = gaql(
         token, account_id, login_customer_id,
-        f"SELECT campaign.name, campaign.status, campaign.advertising_channel_type, "
+        f"SELECT campaign.id, campaign.name, campaign.status, campaign.advertising_channel_type, "
         f"campaign.primary_status, campaign.shopping_setting.merchant_id, "
         f"metrics.clicks, metrics.impressions, metrics.cost_micros, "
         f"metrics.conversions_by_conversion_date, "
@@ -161,6 +161,7 @@ def fetch_campaigns(token: str, account_id: str, login_customer_id: str,
     merchant_ids = set()
     for r in rows:
         name = r["campaign"]["name"]
+        campaign_id = str(r["campaign"].get("id", ""))
         campaign_status = r["campaign"].get("status", "ENABLED")   # ENABLED or PAUSED
         primary_status = r["campaign"].get("primaryStatus", "UNKNOWN")  # ELIGIBLE, LIMITED, etc.
         cost = int(r["metrics"].get("costMicros", 0)) / 1e6
@@ -171,6 +172,7 @@ def fetch_campaigns(token: str, account_id: str, login_customer_id: str,
             merchant_ids.add(int(mid))
         if name not in camps:
             camps[name] = {
+                "id": campaign_id,
                 "name": name,
                 "type": r["campaign"].get("advertisingChannelType", ""),
                 "status": primary_status,
@@ -296,7 +298,7 @@ def fetch_deeper(account_name: str, mcc_key: str, start_str: str, end_str: str) 
 
     # Campaign metrics with impression share
     camp_rows = gaql(token, target_id, login_id, f"""
-        SELECT campaign.name, campaign.status, campaign.primary_status,
+        SELECT campaign.id, campaign.name, campaign.status, campaign.primary_status,
         metrics.cost_micros,
         metrics.conversions_value_by_conversion_date,
         metrics.conversions_by_conversion_date,
@@ -312,6 +314,7 @@ def fetch_deeper(account_name: str, mcc_key: str, start_str: str, end_str: str) 
         name = r["campaign"]["name"]
         if name not in camps:
             camps[name] = {
+                "id": str(r["campaign"].get("id", "")),
                 "status": r["campaign"].get("primaryStatus", "UNKNOWN"),
                 "campaignStatus": r["campaign"].get("status", "ENABLED"),
                 "cost": 0, "revenue": 0, "conversions": 0,
@@ -340,6 +343,7 @@ def fetch_deeper(account_name: str, mcc_key: str, start_str: str, end_str: str) 
         impressions = c["impressions"]
         is_pct = (c["is_sum"] / c["is_count"] * 100) if c["is_count"] > 0 else 0
         campaign_list.append({
+            "id": c["id"],
             "name": name,
             "status": c["status"],
             "campaignStatus": c["campaignStatus"],

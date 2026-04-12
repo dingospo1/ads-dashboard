@@ -103,6 +103,8 @@ select.ctrl:focus { outline: none; border-color: #34d399; }
 .campaign-row { display: flex; align-items: flex-start; padding: 6px 0; border-bottom: 1px solid rgba(42,45,58,0.5); font-size: 12px; }
 .campaign-row:last-child { border-bottom: none; }
 .campaign-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #c9cdd5; padding-right: 8px; }
+.camp-link { color: inherit; text-decoration: none; }
+.camp-link:hover { color: #34d399; }
 .status-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 5px; flex-shrink: 0; }
 .dot-green{background:#34d399} .dot-yellow{background:#fbbf24} .dot-gray{background:#6b7280}
 .campaign-metric { width: 80px; text-align: right; flex-shrink: 0; font-size: 11px; color: #9ca3af; }
@@ -413,8 +415,14 @@ function renderCard(account, mccKey) {
     const cCostD = ccmp ? deltaHtml(pctChange(c.cost, ccmp.cost), true) : '';
     const cRevD = ccmp ? deltaHtml(pctChange(c.revenue, ccmp.revenue), false) : '';
     const cRoasD = ccmp ? deltaHtml(pctChange(c.roas, ccmp.roas), false) : '';
+    const campUrl = c.id && account.accountId
+      ? 'https://ads.google.com/aw/campaigns?campaignId=' + c.id + '&ocid=' + account.accountId
+      : null;
+    const campNameHtml = campUrl
+      ? '<a href="' + campUrl + '" target="_blank" class="camp-link"><span class="status-dot ' + statusDot(c.status) + '"></span>' + c.name + ' &#8599;</a>'
+      : '<span><span class="status-dot ' + statusDot(c.status) + '"></span>' + c.name + '</span>';
     return '<div class="campaign-row" data-group="' + id + '" data-cost="' + c.cost + '" data-revenue="' + c.revenue + '" data-roas="' + c.roas + '"' + hidden + '>' +
-      '<div class="campaign-name"><span class="status-dot ' + statusDot(c.status) + '"></span>' + c.name + '</div>' +
+      '<div class="campaign-name">' + campNameHtml + '</div>' +
       '<div class="campaign-metric">' + fmtDec(c.cost) + cCostD + '</div>' +
       '<div class="campaign-metric">' + fmtDec(c.revenue) + cRevD + '</div>' +
       '<div class="campaign-metric roas roas-' + roasClass(c.roas, target) + '">' + fmtRoas(c.roas) + cRoasD + '</div>' +
@@ -639,7 +647,7 @@ function switchTab(tab) {
    DEEPER DIVE — state
    ============================================================ */
 let modal = {
-  account: null, mcc: null,
+  account: null, mcc: null, accountId: null,
   days: currentDays, rangeType: rangeType || '',
   customStart: customStart || '', customEnd: customEnd || '',
   compareMode: 'none',
@@ -649,6 +657,10 @@ let modal = {
 function openDeeperDive(accountName, mccKey) {
   modal.account = accountName;
   modal.mcc = mccKey;
+  // Find accountId for campaign links
+  const allAccs = [...happyAccounts, ...upscaleAccounts];
+  const acc = allAccs.find(a => a.name === accountName);
+  modal.accountId = acc ? acc.accountId : null;
   modal.days = currentDays;
   modal.rangeType = rangeType || '';
   modal.customStart = customStart || '';
@@ -793,8 +805,14 @@ function renderDeeperDive() {
       const rc = roasClass(c.roas, target);
       const roasCl = rc==='green'?'#34d399':rc==='yellow'?'#fbbf24':'#f87171';
       const dotCl = c.status==='ELIGIBLE'?'dot-green':c.status==='LIMITED'?'dot-yellow':'dot-gray';
+      const campUrl = c.id && modal.accountId
+        ? 'https://ads.google.com/aw/campaigns?campaignId=' + c.id + '&ocid=' + modal.accountId
+        : null;
+      const campCell = campUrl
+        ? '<a href="' + campUrl + '" target="_blank" class="camp-link"><span class="status-dot ' + dotCl + '"></span>' + c.name + ' &#8599;</a>'
+        : '<span><span class="status-dot ' + dotCl + '"></span>' + c.name + '</span>';
       return '<tr>' +
-        '<td><span class="status-dot ' + dotCl + '"></span>' + c.name + '</td>' +
+        '<td>' + campCell + '</td>' +
         '<td>' + (c.campaignStatus==='PAUSED'?'<span style="color:#6b7280">Paused</span>':'<span style="color:#34d399">Active</span>') + '</td>' +
         td(fmtDec(c.cost), cc&&cc.cost, true) +
         td(fmtDec(c.revenue), cc&&cc.revenue, false) +
