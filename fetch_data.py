@@ -158,7 +158,7 @@ def fetch_campaigns(token: str, account_id: str, login_customer_id: str,
     )
 
     camps = {}
-    merchant_ids = set()
+    merchant_spend = {}   # mid → total cost, so we pick the highest-spend MC if there are multiple
     for r in rows:
         name = r["campaign"]["name"]
         campaign_id = str(r["campaign"].get("id", ""))
@@ -166,10 +166,10 @@ def fetch_campaigns(token: str, account_id: str, login_customer_id: str,
         primary_status = r["campaign"].get("primaryStatus", "UNKNOWN")  # ELIGIBLE, LIMITED, etc.
         cost = int(r["metrics"].get("costMicros", 0)) / 1e6
         value = float(r["metrics"].get("conversionsValueByConversionDate", 0))
-        # Collect merchant center IDs from shopping campaigns
+        # Track merchant center IDs and their spend
         mid = r["campaign"].get("shoppingSetting", {}).get("merchantId")
         if mid:
-            merchant_ids.add(int(mid))
+            merchant_spend[int(mid)] = merchant_spend.get(int(mid), 0) + cost
         if name not in camps:
             camps[name] = {
                 "id": campaign_id,
@@ -192,7 +192,8 @@ def fetch_campaigns(token: str, account_id: str, login_customer_id: str,
         c["roas"] = round(c["revenue"] / c["cost"], 2) if c["cost"] > 0 else 0
         result.append(c)
     result.sort(key=lambda x: x["cost"], reverse=True)
-    merchant_id = next(iter(merchant_ids), 0)
+    # Pick the MC with the most spend (deterministic, handles multi-MC accounts)
+    merchant_id = max(merchant_spend, key=merchant_spend.get) if merchant_spend else 0
     return result, merchant_id
 
 
