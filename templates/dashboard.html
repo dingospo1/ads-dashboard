@@ -111,7 +111,7 @@ select.ctrl:focus { outline: none; border-color: #34d399; }
 .toggle-btn:hover { color: #e1e4e8; border-color: #4a4d5a; }
 
 /* Deeper Dive button */
-.deeper-btn { background: #1a1d27; border: 1px solid #2a2d3a; color: #9ca3af; font-size: 11px; padding: 4px 12px; border-radius: 4px; cursor: pointer; margin-top: 8px; transition: all 0.15s; width: 100%; }
+.deeper-btn { background: transparent; border: 1px solid #2a2d3a; color: #6b7280; font-size: 10px; padding: 2px 7px; border-radius: 4px; cursor: pointer; transition: all 0.15s; white-space: nowrap; flex-shrink: 0; }
 .deeper-btn:hover { color: #34d399; border-color: #34d399; }
 
 /* Compare loading */
@@ -447,7 +447,7 @@ function renderCard(account, mccKey) {
   const safeName = account.name.replace(/'/g,"\\x27");
   return '<div class="card" data-card-id="' + id + '">' +
     '<div class="card-header">' +
-      '<h2>' + account.name + '</h2>' +
+      '<h2>' + account.name + ' <button class="deeper-btn" onclick="openDeeperDive(\'' + safeName + '\', \'' + mccKey + '\')">&#128269; Dive</button></h2>' +
       '<div class="header-roas">' +
         '<div class="header-target">' +
           '<span>Target</span>' +
@@ -470,7 +470,6 @@ function renderCard(account, mccKey) {
     '</div>' +
     '<div class="campaign-list" data-list="' + id + '">' + rows + '</div>' +
     toggleHtml +
-    '<button class="deeper-btn" onclick="openDeeperDive(\'' + safeName + '\', \'' + mccKey + '\')">&#128269; Deeper Dive</button>' +
   '</div>';
 }
 
