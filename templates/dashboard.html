@@ -48,9 +48,6 @@ select.ctrl:focus { outline: none; border-color: #34d399; }
 /* TOOLBAR */
 .toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
 .sort-label { font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; }
-.sort-btn { background: #1a1d27; border: 1px solid #2a2d3a; color: #9ca3af; font-size: 11px; padding: 4px 10px; border-radius: 4px; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
-.sort-btn:hover { color: #e1e4e8; border-color: #4a4d5a; }
-.sort-btn.active { color: #34d399; border-color: #34d399; }
 .toolbar-sep { color: #2a2d3a; margin: 0 4px; }
 
 /* LEGEND */
@@ -218,9 +215,14 @@ select.ctrl:focus { outline: none; border-color: #34d399; }
 
 <div class="toolbar">
   <span class="sort-label">Sort:</span>
-  <button class="sort-btn active" data-sort="totalCost" data-dir="desc" onclick="sortAccounts(this)">Cost &#9660;</button>
-  <button class="sort-btn" data-sort="totalRevenue" data-dir="desc" onclick="sortAccounts(this)">Revenue &#9660;</button>
-  <button class="sort-btn" data-sort="totalRoas" data-dir="desc" onclick="sortAccounts(this)">ROAS &#9660;</button>
+  <select class="ctrl" id="sort-select" onchange="sortAccounts(this.value)" style="font-size:11px;padding:4px 22px 4px 8px;">
+    <option value="totalCost-desc">Cost &#9660;</option>
+    <option value="totalCost-asc">Cost &#9650;</option>
+    <option value="totalRevenue-desc">Revenue &#9660;</option>
+    <option value="totalRevenue-asc">Revenue &#9650;</option>
+    <option value="totalRoas-desc">ROAS &#9660;</option>
+    <option value="totalRoas-asc">ROAS &#9650;</option>
+  </select>
   <span class="toolbar-sep">|</span>
   <span class="sort-label">Campaigns:</span>
   <select class="ctrl" id="camp-filter" onchange="setCampFilter(this.value)" style="font-size:11px;padding:4px 22px 4px 8px;">
@@ -511,21 +513,11 @@ function updateSummary() {
 /* ============================================================
    SORTING
    ============================================================ */
-function sortAccounts(btn) {
-  const key = btn.dataset.sort;
-  const wasActive = btn.classList.contains('active');
-  const currentDir = btn.dataset.dir || 'desc';
-  const newDir = wasActive ? (currentDir === 'desc' ? 'asc' : 'desc') : 'desc';
-  document.querySelectorAll('.toolbar .sort-btn').forEach(b => {
-    b.classList.remove('active');
-    const l = b.dataset.sort === 'totalRoas' ? 'ROAS' : b.dataset.sort === 'totalCost' ? 'Cost' : 'Revenue';
-    b.innerHTML = l + ' &#9660;'; b.dataset.dir = 'desc';
-  });
-  btn.classList.add('active'); btn.dataset.dir = newDir;
-  const label = key === 'totalRoas' ? 'ROAS' : key === 'totalCost' ? 'Cost' : 'Revenue';
-  btn.innerHTML = label + (newDir === 'desc' ? ' &#9660;' : ' &#9650;');
-  const sortFn = (a,b) => newDir==='desc' ? b[key]-a[key] : a[key]-b[key];
-  happyAccounts.sort(sortFn); upscaleAccounts.sort(sortFn);
+function sortAccounts(val) {
+  const [key, dir] = val.split('-');
+  const sortFn = (a, b) => dir === 'desc' ? b[key] - a[key] : a[key] - b[key];
+  happyAccounts.sort(sortFn);
+  upscaleAccounts.sort(sortFn);
   renderAll();
 }
 
