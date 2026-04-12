@@ -137,9 +137,17 @@ select.ctrl:focus { outline: none; border-color: #34d399; }
 .mc-stat-val.disapproved { color: #f87171; }
 .mc-stat-val.pending { color: #fbbf24; }
 .mc-progress-wrap { margin-bottom: 14px; }
-.mc-progress-label { display: flex; justify-content: space-between; font-size: 11px; color: #6b7280; margin-bottom: 5px; }
-.mc-progress-bar { height: 6px; background: #0f1117; border-radius: 3px; overflow: hidden; }
-.mc-progress-fill { height: 100%; border-radius: 3px; transition: width 0.6s ease; }
+.mc-progress-label { display: flex; justify-content: space-between; font-size: 11px; color: #6b7280; margin-bottom: 6px; }
+.mc-stacked-bar { height: 10px; background: #0f1117; border-radius: 5px; overflow: hidden; display: flex; margin-bottom: 8px; }
+.mc-stacked-bar .seg-approved  { background: #34d399; transition: width 0.6s ease; }
+.mc-stacked-bar .seg-pending   { background: #fbbf24; transition: width 0.6s ease; }
+.mc-stacked-bar .seg-disapproved { background: #f87171; transition: width 0.6s ease; }
+.mc-stacked-legend { display: flex; gap: 12px; font-size: 10px; color: #9ca3af; margin-bottom: 14px; }
+.mc-stacked-legend span { display: flex; align-items: center; gap: 4px; }
+.mc-stacked-legend span::before { content: ''; display: inline-block; width: 8px; height: 8px; border-radius: 2px; }
+.mc-stacked-legend .leg-approved::before  { background: #34d399; }
+.mc-stacked-legend .leg-pending::before   { background: #fbbf24; }
+.mc-stacked-legend .leg-disapproved::before { background: #f87171; }
 .mc-reasons { font-size: 11px; }
 .mc-reasons-title { color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; font-size: 10px; }
 .mc-reason-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; border-bottom: 1px solid rgba(42,45,58,0.5); }
@@ -920,10 +928,10 @@ function buildMcCard(acc) {
   if (rate < 80) badgeCls = 'mc-badge-red';
   else if (rate < 95) badgeCls = 'mc-badge-yellow';
 
-  // Progress bar colour
-  let barColor = '#34d399';
-  if (rate < 80) barColor = '#f87171';
-  else if (rate < 95) barColor = '#fbbf24';
+  // Stacked bar percentages
+  const approvedPct    = total > 0 ? (approved    / total * 100).toFixed(1) : 0;
+  const pendingPct     = total > 0 ? (pending      / total * 100).toFixed(1) : 0;
+  const disapprovedPct = total > 0 ? (disapproved  / total * 100).toFixed(1) : 0;
 
   // Issues list (disapproved + limited, merchant-actionable)
   const reasons = acc.topReasons || [];
@@ -959,8 +967,17 @@ function buildMcCard(acc) {
       '<div class="mc-stat"><div class="mc-stat-val pending">' + pending.toLocaleString() + '</div><div class="mc-stat-lbl">Pending</div></div>' +
     '</div>' +
     '<div class="mc-progress-wrap">' +
-      '<div class="mc-progress-label"><span>Approval rate</span><span>' + rate.toFixed(1) + '%</span></div>' +
-      '<div class="mc-progress-bar"><div class="mc-progress-fill" style="width:' + rate + '%;background:' + barColor + '"></div></div>' +
+      '<div class="mc-progress-label"><span>Product availability</span><span>' + rate.toFixed(1) + '% approved</span></div>' +
+      '<div class="mc-stacked-bar">' +
+        '<div class="seg-approved"  style="width:' + approvedPct    + '%"></div>' +
+        '<div class="seg-pending"   style="width:' + pendingPct     + '%"></div>' +
+        '<div class="seg-disapproved" style="width:' + disapprovedPct + '%"></div>' +
+      '</div>' +
+      '<div class="mc-stacked-legend">' +
+        '<span class="leg-approved">Approved ' + approvedPct + '%</span>' +
+        '<span class="leg-pending">Pending ' + pendingPct + '%</span>' +
+        '<span class="leg-disapproved">Disapproved ' + disapprovedPct + '%</span>' +
+      '</div>' +
     '</div>' +
     reasonsHtml +
     mcLink +
