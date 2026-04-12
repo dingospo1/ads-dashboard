@@ -75,6 +75,7 @@ select.ctrl:focus { outline: none; border-color: #34d399; }
 .card-links { display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
 .card-link { font-size: 11px; color: #6b7280; text-decoration: none; transition: color 0.15s; white-space: nowrap; }
 .card-link:hover { color: #34d399; }
+.card-link-dim { opacity: 0.35; cursor: default; }
 
 /* Target ROAS row */
 .target-roas-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid #2a2d3a; }
@@ -116,29 +117,33 @@ select.ctrl:focus { outline: none; border-color: #34d399; }
 .compare-loading { font-size: 12px; color: #fbbf24; margin-bottom: 12px; }
 
 /* ======= DEEPER DIVE MODAL ======= */
-.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 100; display: none; overflow-y: auto; }
-.modal-overlay.open { display: block; }
-.modal { background: #0f1117; border: 1px solid #2a2d3a; border-radius: 14px; max-width: 900px; margin: 30px auto; padding: 28px; position: relative; }
-.modal-close { position: absolute; top: 16px; right: 20px; background: none; border: none; color: #6b7280; font-size: 22px; cursor: pointer; line-height: 1; }
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.82); z-index: 100; display: none; overflow-y: auto; padding: 12px; }
+.modal-overlay.open { display: flex; align-items: flex-start; justify-content: center; }
+.modal { background: #0f1117; border: 1px solid #2a2d3a; border-radius: 14px; width: 96vw; max-width: 1400px; min-height: 90vh; padding: 24px 28px; position: relative; margin: auto; }
+.modal-close { position: absolute; top: 16px; right: 20px; background: none; border: none; color: #6b7280; font-size: 24px; cursor: pointer; line-height: 1; z-index: 2; }
 .modal-close:hover { color: #e1e4e8; }
-.modal-title { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
-.modal-subtitle { font-size: 12px; color: #6b7280; margin-bottom: 20px; }
-.modal-loading { text-align: center; color: #6b7280; padding: 40px 0; font-size: 14px; }
-.kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; margin-bottom: 24px; }
+.modal-header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; padding-right: 36px; }
+.modal-title { font-size: 18px; font-weight: 700; flex: 1; min-width: 120px; }
+.modal-controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.modal-loading { text-align: center; color: #6b7280; padding: 60px 0; font-size: 14px; }
+.modal-date-label { font-size: 11px; color: #6b7280; margin-bottom: 14px; }
+.kpi-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 22px; }
 .kpi-box { background: #1a1d27; border: 1px solid #2a2d3a; border-radius: 8px; padding: 12px 14px; }
 .kpi-label { font-size: 10px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
 .kpi-value { font-size: 20px; font-weight: 700; }
-.kpi-target { font-size: 11px; color: #6b7280; margin-top: 2px; }
-.chart-wrap { background: #1a1d27; border: 1px solid #2a2d3a; border-radius: 8px; padding: 16px; margin-bottom: 24px; }
-.chart-wrap canvas { max-height: 220px; }
-.products-section h3 { font-size: 13px; font-weight: 600; margin-bottom: 10px; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px; }
-.products-table-wrap { overflow-x: auto; }
-.products-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-.products-table th { text-align: right; font-size: 10px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; padding: 6px 8px; border-bottom: 1px solid #2a2d3a; white-space: nowrap; font-weight: 600; }
-.products-table th:first-child { text-align: left; }
-.products-table td { text-align: right; padding: 7px 8px; border-bottom: 1px solid rgba(42,45,58,0.4); color: #9ca3af; }
-.products-table td:first-child { text-align: left; color: #c9cdd5; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.products-table tr:last-child td { border-bottom: none; }
+.kpi-delta { font-size: 11px; margin-top: 2px; }
+.chart-wrap { background: #1a1d27; border: 1px solid #2a2d3a; border-radius: 8px; padding: 16px; margin-bottom: 22px; }
+.chart-wrap canvas { max-height: 200px; }
+.modal-section-title { font-size: 12px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 10px; }
+.data-table-wrap { overflow-x: auto; margin-bottom: 24px; }
+.data-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.data-table th { text-align: right; font-size: 10px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; padding: 6px 10px; border-bottom: 1px solid #2a2d3a; white-space: nowrap; font-weight: 600; }
+.data-table th:first-child, .data-table th:nth-child(2) { text-align: left; }
+.data-table td { text-align: right; padding: 7px 10px; border-bottom: 1px solid rgba(42,45,58,0.4); color: #9ca3af; white-space: nowrap; }
+.data-table td:first-child { text-align: left; color: #c9cdd5; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.data-table td:nth-child(2) { text-align: left; }
+.data-table tr:last-child td { border-bottom: none; }
+.data-table tr:hover td { background: rgba(255,255,255,0.02); }
 
 /* MOBILE */
 @media (max-width: 640px) {
@@ -237,6 +242,24 @@ select.ctrl:focus { outline: none; border-color: #34d399; }
 <div class="modal-overlay" id="modal-overlay" onclick="closeModalOutside(event)">
   <div class="modal" id="modal">
     <button class="modal-close" onclick="closeDeeperDive()">&times;</button>
+    <div class="modal-header">
+      <div class="modal-title" id="modal-title">Account</div>
+      <div class="modal-controls">
+        <select class="ctrl" id="modal-range" onchange="changeModalRange(this.value)" style="font-size:12px;padding:5px 22px 5px 8px;">
+          {% for d in valid_days %}
+          <option value="days-{{ d }}">Last {{ d }}d</option>
+          {% endfor %}
+          <option value="mtd">Month to Date</option>
+          <option value="ytd">Year to Date</option>
+          <option value="lastmonth">Last Month</option>
+        </select>
+        <select class="ctrl" id="modal-compare" onchange="changeModalCompare(this.value)" style="font-size:12px;padding:5px 22px 5px 8px;">
+          <option value="none">No comparison</option>
+          <option value="period">vs Previous period</option>
+          <option value="year">vs Previous year</option>
+        </select>
+      </div>
+    </div>
     <div id="modal-content"><div class="modal-loading">Loading...</div></div>
   </div>
 </div>
@@ -246,19 +269,19 @@ select.ctrl:focus { outline: none; border-color: #34d399; }
    CONFIG — fill in merchant center IDs and website URLs
    ============================================================ */
 const ACCOUNT_META = {
-  "Lucky Honey":         { mc: "", website: "" },
-  "Anavrin":             { mc: "", website: "https://byanavrin.com" },
-  "Vintage Muscle":      { mc: "", website: "https://vintagemuscle.com" },
-  "Plum Play UK":        { mc: "", website: "https://plumplay.co.uk" },
-  "Home Teeth Whitening":{ mc: "", website: "" },
-  "Warrior Willpower":   { mc: "", website: "" },
-  "Aromely":             { mc: "", website: "https://aromely.com" },
-  "Dons Liquors":        { mc: "", website: "" },
-  "Ring Come True":      { mc: "", website: "" },
-  "MCM Ecom":            { mc: "", website: "" },
-  "SilverAnt":           { mc: "", website: "https://silverantoutdoors.com" },
-  "HGV Direct":          { mc: "", website: "https://hgvdirect.co.uk" },
-  "Value Canvas Prints": { mc: "", website: "" },
+  "Lucky Honey":         { website: "https://luckyhoney.nyc" },
+  "Anavrin":             { website: "https://byanavrin.com" },
+  "Vintage Muscle":      { website: "https://vintagemuscle.com" },
+  "Plum Play UK":        { website: "https://plumplay.co.uk" },
+  "Home Teeth Whitening":{ website: "https://www.hometeethwhitening.com" },
+  "Warrior Willpower":   { website: "https://warriorwillpower.com" },
+  "Aromely":             { website: "https://aromely.com" },
+  "Dons Liquors":        { website: "https://www.donsliquorsandwine.com" },
+  "Ring Come True":      { website: "https://ringcometrue.com" },
+  "MCM Ecom":            { website: "" },
+  "SilverAnt":           { website: "https://silverantoutdoors.com" },
+  "HGV Direct":          { website: "https://hgvdirect.co.uk" },
+  "Value Canvas Prints": { website: "https://valuecanvasprints.co.uk" },
 };
 
 const HAPPY_WHITELIST = [
@@ -369,13 +392,17 @@ function renderCard(account, mccKey) {
   const adsUrl = account.accountId
     ? 'https://ads.google.com/aw/campaigns?ocid=' + account.accountId
     : '#';
-  const mcUrl = meta.mc ? 'https://merchants.google.com/mc/overview?a=' + meta.mc : 'https://merchants.google.com/';
+  // Use auto-fetched merchantId from API, no manual config needed
+  const mcId = account.merchantId || '';
+  const mcUrl = mcId ? 'https://merchants.google.com/mc/overview?a=' + mcId : 'https://merchants.google.com/';
   const webUrl = meta.website || '';
 
   // Links row
   let linksHtml = '<a href="' + adsUrl + '" target="_blank" class="card-link">Go to account &#8599;</a>';
   linksHtml += '<a href="' + mcUrl + '" target="_blank" class="card-link">Merchant Center &#8599;</a>';
-  if (webUrl) linksHtml += '<a href="' + webUrl + '" target="_blank" class="card-link">Website &#8599;</a>';
+  linksHtml += webUrl
+    ? '<a href="' + webUrl + '" target="_blank" class="card-link">Website &#8599;</a>'
+    : '<span class="card-link card-link-dim">Website —</span>';
 
   // Campaign rows
   let rows = campaigns.map((c, i) => {
@@ -606,30 +633,38 @@ function switchTab(tab) {
 }
 
 /* ============================================================
-   DEEPER DIVE
+   DEEPER DIVE — state
    ============================================================ */
+let modal = {
+  account: null, mcc: null,
+  days: currentDays, rangeType: rangeType || '',
+  customStart: customStart || '', customEnd: customEnd || '',
+  compareMode: 'none',
+  data: null, cmpData: null
+};
+
 function openDeeperDive(accountName, mccKey) {
-  const overlay = document.getElementById('modal-overlay');
-  overlay.classList.add('open');
-  document.getElementById('modal-content').innerHTML = '<div class="modal-loading">Loading data for ' + accountName + '...</div>';
+  modal.account = accountName;
+  modal.mcc = mccKey;
+  modal.days = currentDays;
+  modal.rangeType = rangeType || '';
+  modal.customStart = customStart || '';
+  modal.customEnd = customEnd || '';
+  modal.compareMode = 'none';
+  modal.data = null; modal.cmpData = null;
 
-  let url = '/api/deeper?account=' + encodeURIComponent(accountName) + '&mcc=' + mccKey;
-  if (rangeType) url += '&range=' + rangeType;
-  else url += '&days=' + currentDays;
-  if (customStart) url += '&start=' + customStart + '&end=' + customEnd;
-
-  fetch(url)
-    .then(r => r.json())
-    .then(d => {
-      if (d.error) {
-        document.getElementById('modal-content').innerHTML = '<div class="modal-loading" style="color:#f87171">Error: ' + d.error + '</div>';
-        return;
-      }
-      renderDeeperDive(d, accountName);
-    })
-    .catch(e => {
-      document.getElementById('modal-content').innerHTML = '<div class="modal-loading" style="color:#f87171">Failed to load</div>';
-    });
+  // Sync range selector to current page range
+  const rs = document.getElementById('modal-range');
+  if (modal.rangeType && ['mtd','ytd','lastmonth'].includes(modal.rangeType)) {
+    rs.value = modal.rangeType;
+  } else {
+    rs.value = 'days-' + modal.days;
+  }
+  document.getElementById('modal-compare').value = 'none';
+  document.getElementById('modal-title').textContent = accountName;
+  document.getElementById('modal-overlay').classList.add('open');
+  document.getElementById('modal-content').innerHTML = '<div class="modal-loading">Loading...</div>';
+  fetchDeeperData();
 }
 
 function closeDeeperDive() {
@@ -641,85 +676,183 @@ function closeModalOutside(e) {
   if (e.target === document.getElementById('modal-overlay')) closeDeeperDive();
 }
 
-function renderDeeperDive(d, accountName) {
-  const target = getTargetRoas(accountName);
+function changeModalRange(val) {
+  if (val.startsWith('days-')) {
+    modal.days = parseInt(val.replace('days-',''));
+    modal.rangeType = '';
+  } else {
+    modal.rangeType = val;
+    modal.days = 7;
+  }
+  modal.cmpData = null;
+  fetchDeeperData();
+}
+
+function changeModalCompare(val) {
+  modal.compareMode = val;
+  if (val === 'none') { modal.cmpData = null; renderDeeperDive(); return; }
+  fetchDeeperCompare();
+}
+
+function deeperUrl(days, rangeType, customStart, customEnd) {
+  let url = '/api/deeper?account=' + encodeURIComponent(modal.account) + '&mcc=' + modal.mcc;
+  if (rangeType && ['mtd','ytd','lastmonth','custom'].includes(rangeType)) {
+    url += '&range=' + rangeType;
+    if (rangeType === 'custom' && customStart) url += '&start=' + customStart + '&end=' + customEnd;
+  } else {
+    url += '&days=' + (days || 7);
+  }
+  return url;
+}
+
+function fetchDeeperData() {
+  document.getElementById('modal-content').innerHTML = '<div class="modal-loading">Loading...</div>';
+  fetch(deeperUrl(modal.days, modal.rangeType, modal.customStart, modal.customEnd))
+    .then(r => r.json())
+    .then(d => {
+      if (d.error) { document.getElementById('modal-content').innerHTML = '<div class="modal-loading" style="color:#f87171">Error: ' + d.error + '</div>'; return; }
+      modal.data = d;
+      if (modal.compareMode !== 'none') fetchDeeperCompare();
+      else renderDeeperDive();
+    })
+    .catch(() => { document.getElementById('modal-content').innerHTML = '<div class="modal-loading" style="color:#f87171">Failed to load</div>'; });
+}
+
+function fetchDeeperCompare() {
+  if (!modal.data) return;
+  // Compute comparison start/end from current period
+  const s = new Date(modal.data.startDate), e = new Date(modal.data.endDate);
+  const days = Math.round((e - s) / 86400000) + 1;
+  let cs, ce;
+  if (modal.compareMode === 'year') {
+    cs = new Date(s); cs.setFullYear(cs.getFullYear()-1);
+    ce = new Date(e); ce.setFullYear(ce.getFullYear()-1);
+  } else {
+    ce = new Date(s); ce.setDate(ce.getDate()-1);
+    cs = new Date(ce); cs.setDate(cs.getDate()-days+1);
+  }
+  const fmt = d => d.toISOString().slice(0,10);
+  const url = '/api/deeper?account=' + encodeURIComponent(modal.account) + '&mcc=' + modal.mcc +
+    '&range=custom&start=' + fmt(cs) + '&end=' + fmt(ce);
+  fetch(url)
+    .then(r => r.json())
+    .then(d => { modal.cmpData = d.error ? null : d; renderDeeperDive(); })
+    .catch(() => { modal.cmpData = null; renderDeeperDive(); });
+}
+
+function renderDeeperDive() {
+  const d = modal.data;
+  if (!d) return;
+  const cmp = modal.cmpData;
+  const target = getTargetRoas(modal.account);
   const roasCls = roasClass(d.totalRoas, target);
   const roasColor = roasCls === 'green' ? '#34d399' : roasCls === 'yellow' ? '#fbbf24' : '#f87171';
 
-  const kpis = [
-    { label: 'Target ROAS', value: Math.round(target * 100) + '%', color: '#9ca3af' },
-    { label: 'Cost', value: fmt(d.totalCost), color: '#e1e4e8' },
-    { label: 'Revenue', value: fmt(d.totalRevenue), color: '#34d399' },
-    { label: 'ROAS', value: fmtRoas(d.totalRoas), color: roasColor },
-    { label: 'Conversions', value: d.totalConversions.toFixed(1), color: '#e1e4e8' },
-    { label: 'Conv. Rate', value: fmtPct(d.convRate), color: '#e1e4e8' },
-    { label: 'CPC', value: fmtDec(d.cpc), color: '#e1e4e8' },
-    { label: 'CTR', value: fmtPct(d.ctr), color: '#e1e4e8' },
-    { label: 'Impr. Share', value: d.impressionShare > 0 ? fmtPct(d.impressionShare) : 'N/A', color: '#e1e4e8' },
-    { label: 'AOV', value: d.aov > 0 ? fmt(d.aov) : 'N/A', color: '#e1e4e8' },
-  ];
+  // KPI helpers
+  function kpiDelta(curr, prev, invert) {
+    if (!cmp || !prev) return '';
+    const pct = (curr - prev) / prev * 100;
+    const sign = pct >= 0 ? '+' : '';
+    const cls = invert ? (pct>0?'delta-cost-up':'delta-cost-down') : (pct>0?'delta-up':'delta-down');
+    return '<div class="kpi-delta ' + cls + '">' + sign + pct.toFixed(1) + '%</div>';
+  }
 
+  const kpis = [
+    { label: 'Target ROAS', value: Math.round(target * 100) + '%', color: '#9ca3af', delta: '' },
+    { label: 'Cost', value: fmt(d.totalCost), color: '#e1e4e8', delta: kpiDelta(d.totalCost, cmp&&cmp.totalCost, true) },
+    { label: 'Revenue', value: fmt(d.totalRevenue), color: '#34d399', delta: kpiDelta(d.totalRevenue, cmp&&cmp.totalRevenue, false) },
+    { label: 'ROAS', value: fmtRoas(d.totalRoas), color: roasColor, delta: kpiDelta(d.totalRoas, cmp&&cmp.totalRoas, false) },
+    { label: 'Conversions', value: d.totalConversions.toFixed(1), color: '#e1e4e8', delta: kpiDelta(d.totalConversions, cmp&&cmp.totalConversions, false) },
+    { label: 'Conv. Rate', value: fmtPct(d.convRate), color: '#e1e4e8', delta: kpiDelta(d.convRate, cmp&&cmp.convRate, false) },
+    { label: 'CPC', value: fmtDec(d.cpc), color: '#e1e4e8', delta: kpiDelta(d.cpc, cmp&&cmp.cpc, true) },
+    { label: 'CTR', value: fmtPct(d.ctr), color: '#e1e4e8', delta: kpiDelta(d.ctr, cmp&&cmp.ctr, false) },
+    { label: 'Impr. Share', value: d.impressionShare > 0 ? fmtPct(d.impressionShare) : 'N/A', color: '#e1e4e8', delta: d.impressionShare>0 && cmp ? kpiDelta(d.impressionShare, cmp.impressionShare, false) : '' },
+    { label: 'AOV', value: d.aov > 0 ? fmt(d.aov) : 'N/A', color: '#e1e4e8', delta: d.aov>0 && cmp ? kpiDelta(d.aov, cmp.aov, false) : '' },
+  ];
   const kpiHtml = kpis.map(k =>
     '<div class="kpi-box"><div class="kpi-label">' + k.label + '</div>' +
-    '<div class="kpi-value" style="color:' + k.color + '">' + k.value + '</div>' +
-    (k.extra ? '<div class="kpi-target">' + k.extra + '</div>' : '') +
-    '</div>'
+    '<div class="kpi-value" style="color:' + k.color + '">' + k.value + '</div>' + k.delta + '</div>'
   ).join('');
+
+  // Campaigns table
+  let campHtml = '';
+  if (d.campaigns && d.campaigns.length > 0) {
+    const cmpCamps = (cmp && cmp.campaigns) ? cmp.campaigns : [];
+    function findCmp(name) { return cmpCamps.find(c=>c.name===name) || null; }
+    function td(val, cc, invert) {
+      if (!cc) return '<td>' + val + '</td>';
+      const pct = (parseFloat(val.replace(/[^0-9.-]/g,'')) - parseFloat(cc)) / Math.abs(parseFloat(cc)) * 100;
+      const sign = pct>=0?'+':''; const cls = invert?(pct>0?'delta-cost-up':'delta-cost-down'):(pct>0?'delta-up':'delta-down');
+      return '<td>' + val + '<div class="delta ' + cls + '" style="font-size:10px">' + sign + pct.toFixed(1) + '%</div></td>';
+    }
+    const campRows = d.campaigns.map(c => {
+      const cc = findCmp(c.name);
+      const rc = roasClass(c.roas, target);
+      const roasCl = rc==='green'?'#34d399':rc==='yellow'?'#fbbf24':'#f87171';
+      const dotCl = c.status==='ELIGIBLE'?'dot-green':c.status==='LIMITED'?'dot-yellow':'dot-gray';
+      return '<tr>' +
+        '<td><span class="status-dot ' + dotCl + '"></span>' + c.name + '</td>' +
+        '<td>' + (c.campaignStatus==='PAUSED'?'<span style="color:#6b7280">Paused</span>':'<span style="color:#34d399">Active</span>') + '</td>' +
+        td(fmtDec(c.cost), cc&&cc.cost, true) +
+        td(fmtDec(c.revenue), cc&&cc.revenue, false) +
+        '<td style="color:' + roasCl + '">' + fmtRoas(c.roas) + (cc?'<div class="delta ' + (c.roas>=cc.roas?'delta-up':'delta-down') + '" style="font-size:10px">' + (c.roas>=cc.roas?'+':'') + ((c.roas-cc.roas)/cc.roas*100).toFixed(1) + '%</div>':'') + '</td>' +
+        '<td>' + c.conversions.toFixed(1) + (cc?'<div class="delta ' + (c.conversions>=cc.conversions?'delta-up':'delta-down') + '" style="font-size:10px">' + (c.conversions>=cc.conversions?'+':'') + (cc.conversions?((c.conversions-cc.conversions)/cc.conversions*100).toFixed(1)+'%':'') + '</div>':'') + '</td>' +
+        '<td>' + fmtPct(c.convRate) + '</td>' +
+        '<td>' + fmtDec(c.cpc) + '</td>' +
+        '<td>' + fmtPct(c.ctr) + '</td>' +
+        '<td>' + (c.impressionShare > 0 ? fmtPct(c.impressionShare) : '—') + '</td>' +
+        '<td>' + (c.aov > 0 ? fmt(c.aov) : '—') + '</td>' +
+      '</tr>';
+    }).join('');
+    campHtml = '<div class="modal-section-title">Campaigns</div>' +
+      '<div class="data-table-wrap"><table class="data-table"><thead><tr>' +
+      '<th style="text-align:left">Campaign</th><th style="text-align:left">Status</th>' +
+      '<th>Cost</th><th>Revenue</th><th>ROAS</th><th>Conv.</th><th>Conv Rate</th><th>CPC</th><th>CTR</th><th>Impr Share</th><th>AOV</th>' +
+      '</tr></thead><tbody>' + campRows + '</tbody></table></div>';
+  }
 
   // Products table
   let prodHtml = '';
   if (d.products && d.products.length > 0) {
-    const rows = d.products.map(p =>
+    const prodRows = d.products.map(p =>
       '<tr><td>' + p.name + '</td><td>' + fmtDec(p.cost) + '</td><td>' + fmtDec(p.revenue) + '</td>' +
-      '<td style="color:' + (p.roas >= target ? '#34d399' : p.roas >= target*0.7 ? '#fbbf24' : '#f87171') + '">' + fmtRoas(p.roas) + '</td>' +
+      '<td style="color:' + (p.roas>=target?'#34d399':p.roas>=target*0.7?'#fbbf24':'#f87171') + '">' + fmtRoas(p.roas) + '</td>' +
       '<td>' + p.conversions.toFixed(1) + '</td><td>' + fmtDec(p.cpc) + '</td>' +
-      '<td>' + fmtPct(p.ctr) + '</td><td>' + fmtDec(p.aov) + '</td></tr>'
+      '<td>' + fmtPct(p.ctr) + '</td><td>' + (p.aov>0?fmt(p.aov):'—') + '</td></tr>'
     ).join('');
-    prodHtml = '<div class="products-section"><h3>Product Performance</h3><div class="products-table-wrap"><table class="products-table"><thead><tr>' +
+    prodHtml = '<div class="modal-section-title">Products</div>' +
+      '<div class="data-table-wrap"><table class="data-table"><thead><tr>' +
       '<th style="text-align:left">Product</th><th>Cost</th><th>Revenue</th><th>ROAS</th><th>Conv.</th><th>CPC</th><th>CTR</th><th>AOV</th>' +
-      '</tr></thead><tbody>' + rows + '</tbody></table></div></div>';
+      '</tr></thead><tbody>' + prodRows + '</tbody></table></div>';
   }
 
   document.getElementById('modal-content').innerHTML =
-    '<div class="modal-title">' + accountName + '</div>' +
-    '<div class="modal-subtitle">' + d.startDate + ' &rarr; ' + d.endDate + '</div>' +
+    '<div class="modal-date-label">' + d.startDate + ' &rarr; ' + d.endDate + (cmp ? ' &nbsp;&middot;&nbsp; vs ' + cmp.startDate + ' &rarr; ' + cmp.endDate : '') + '</div>' +
     '<div class="kpi-grid">' + kpiHtml + '</div>' +
     '<div class="chart-wrap"><canvas id="deeper-chart"></canvas></div>' +
-    prodHtml;
+    campHtml + prodHtml;
 
-  // Render chart
+  // Chart
   if (deeperChart) { deeperChart.destroy(); deeperChart = null; }
   const ctx = document.getElementById('deeper-chart');
   if (ctx && d.daily && d.daily.length > 0) {
-    const labels = d.daily.map(x => x.date.slice(5)); // MM-DD
+    const labels = d.daily.map(x => x.date.slice(5));
     deeperChart = new Chart(ctx, {
       data: {
         labels,
         datasets: [
-          {
-            type: 'bar', label: 'Cost', data: d.daily.map(x=>x.cost),
-            backgroundColor: 'rgba(248,113,113,0.5)', borderColor: '#f87171',
-            borderWidth: 1, yAxisID: 'y'
-          },
-          {
-            type: 'bar', label: 'Revenue', data: d.daily.map(x=>x.revenue),
-            backgroundColor: 'rgba(52,211,153,0.5)', borderColor: '#34d399',
-            borderWidth: 1, yAxisID: 'y'
-          },
-          {
-            type: 'line', label: 'ROAS', data: d.daily.map(x=>x.roas),
-            borderColor: '#fbbf24', backgroundColor: 'transparent',
-            borderWidth: 2, pointRadius: 2, tension: 0.3, yAxisID: 'y2'
-          }
+          { type:'bar', label:'Cost', data:d.daily.map(x=>x.cost), backgroundColor:'rgba(248,113,113,0.45)', borderColor:'#f87171', borderWidth:1, yAxisID:'y' },
+          { type:'bar', label:'Revenue', data:d.daily.map(x=>x.revenue), backgroundColor:'rgba(52,211,153,0.45)', borderColor:'#34d399', borderWidth:1, yAxisID:'y' },
+          { type:'line', label:'ROAS', data:d.daily.map(x=>Math.round(x.roas*100)), borderColor:'#fbbf24', backgroundColor:'transparent', borderWidth:2, pointRadius:2, tension:0.3, yAxisID:'y2' }
         ]
       },
       options: {
-        responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { labels: { color: '#9ca3af', font: { size: 11 } } } },
-        scales: {
-          x: { ticks: { color: '#6b7280', font: { size: 10 } }, grid: { color: 'rgba(42,45,58,0.5)' } },
-          y: { ticks: { color: '#6b7280', font: { size: 10 }, callback: v => '$'+v.toLocaleString() }, grid: { color: 'rgba(42,45,58,0.5)' }, position: 'left' },
-          y2: { ticks: { color: '#fbbf24', font: { size: 10 }, callback: v => Math.round(v*100)+'%' }, grid: { display: false }, position: 'right' }
+        responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{ labels:{ color:'#9ca3af', font:{size:11} } } },
+        scales:{
+          x:{ ticks:{color:'#6b7280',font:{size:10}}, grid:{color:'rgba(42,45,58,0.5)'} },
+          y:{ ticks:{color:'#6b7280',font:{size:10},callback:v=>'$'+v.toLocaleString()}, grid:{color:'rgba(42,45,58,0.5)'}, position:'left' },
+          y2:{ ticks:{color:'#fbbf24',font:{size:10},callback:v=>v+'%'}, grid:{display:false}, position:'right' }
         }
       }
     });

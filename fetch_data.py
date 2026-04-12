@@ -143,11 +143,12 @@ def list_child_accounts(token: str, login_customer_id: str) -> list:
 
 
 def fetch_campaigns(token: str, account_id: str, login_customer_id: str,
-                    start_str: str, end_str: str) -> list:
+                    start_str: str, end_str: str):
+    """Returns (campaigns_list, merchant_id) where merchant_id is the linked MC account (or 0)."""
     rows = gaql(
         token, account_id, login_customer_id,
         f"SELECT campaign.name, campaign.status, campaign.advertising_channel_type, "
-        f"campaign.primary_status, "
+        f"campaign.primary_status, campaign.shopping_setting.merchant_id, "
         f"metrics.clicks, metrics.impressions, metrics.cost_micros, "
         f"metrics.conversions_by_conversion_date, "
         f"metrics.conversions_value_by_conversion_date "
@@ -157,12 +158,17 @@ def fetch_campaigns(token: str, account_id: str, login_customer_id: str,
     )
 
     camps = {}
+    merchant_ids = set()
     for r in rows:
         name = r["campaign"]["name"]
         campaign_status = r["campaign"].get("status", "ENABLED")   # ENABLED or PAUSED
         primary_status = r["campaign"].get("primaryStatus", "UNKNOWN")  # ELIGIBLE, LIMITED, etc.
         cost = int(r["metrics"].get("costMicros", 0)) / 1e6
         value = float(r["metrics"].get("conversionsValueByConversionDate", 0))
+        # Collect merchant center IDs from shopping campaigns
+        mid = r["campaign"].get("shoppingSetting", {}).get("merchantId")
+        if mid:
+            merchant_ids.add(int(mid))
         if name not in camps:
             camps[name] = {
                 "name": name,
@@ -184,7 +190,8 @@ def fetch_campaigns(token: str, account_id: str, login_customer_id: str,
         c["roas"] = round(c["revenue"] / c["cost"], 2) if c["cost"] > 0 else 0
         result.append(c)
     result.sort(key=lambda x: x["cost"], reverse=True)
-    return result
+    merchant_id = next(iter(merchant_ids), 0)
+    return result, merchant_id
 
 
 def fetch_all(days: int = 7, range_type=None, custom_start=None, custom_end=None) -> dict:
@@ -209,7 +216,7 @@ def fetch_all(days: int = 7, range_type=None, custom_start=None, custom_end=None
             acc_id = str(acc["id"])
             acc_name = ACCOUNT_NAMES.get(acc_id, acc.get("name", acc_id))
             try:
-                campaigns = fetch_campaigns(token, acc_id, mcc["login_customer_id"], start_str, end_str)
+                campaigns, merchant_id = fetch_campaigns(token, acc_id, mcc["login_customer_id"], start_str, end_str)
                 # Totals from active (ENABLED) campaigns only
                 active = [c for c in campaigns if c["campaignStatus"] == "ENABLED"]
                 total_cost = sum(c["cost"] for c in active)
@@ -218,6 +225,7 @@ def fetch_all(days: int = 7, range_type=None, custom_start=None, custom_end=None
                 data[mcc_key].append({
                     "name": acc_name,
                     "accountId": acc_id,
+                    "merchantId": merchant_id,
                     "totalCost": round(total_cost, 2),
                     "totalRevenue": round(total_revenue, 2),
                     "totalRoas": round(total_revenue / total_cost, 2) if total_cost > 0 else 0,
@@ -304,6 +312,8 @@ def fetch_deeper(account_name: str, mcc_key: str, start_str: str, end_str: str) 
         name = r["campaign"]["name"]
         if name not in camps:
             camps[name] = {
+                "status": r["campaign"].get("primaryStatus", "UNKNOWN"),
+                "campaignStatus": r["campaign"].get("status", "ENABLED"),
                 "cost": 0, "revenue": 0, "conversions": 0,
                 "clicks": 0, "impressions": 0, "is_sum": 0.0, "is_count": 0
             }
@@ -319,6 +329,33 @@ def fetch_deeper(account_name: str, mcc_key: str, start_str: str, end_str: str) 
                 camps[name]["is_count"] += 1
             except Exception:
                 pass
+
+    # Build per-campaign metrics list
+    campaign_list = []
+    for name, c in camps.items():
+        cost = c["cost"]
+        revenue = c["revenue"]
+        conversions = c["conversions"]
+        clicks = c["clicks"]
+        impressions = c["impressions"]
+        is_pct = (c["is_sum"] / c["is_count"] * 100) if c["is_count"] > 0 else 0
+        campaign_list.append({
+            "name": name,
+            "status": c["status"],
+            "campaignStatus": c["campaignStatus"],
+            "cost": round(cost, 2),
+            "revenue": round(revenue, 2),
+            "roas": round(revenue / cost, 2) if cost > 0 else 0,
+            "conversions": round(conversions, 1),
+            "clicks": clicks,
+            "impressions": impressions,
+            "cpc": round(cost / clicks, 2) if clicks > 0 else 0,
+            "ctr": round(clicks / impressions * 100, 2) if impressions > 0 else 0,
+            "convRate": round(conversions / clicks * 100, 2) if clicks > 0 else 0,
+            "aov": round(revenue / conversions, 2) if conversions > 0 else 0,
+            "impressionShare": round(is_pct, 1),
+        })
+    campaign_list.sort(key=lambda x: x["cost"], reverse=True)
 
     total_cost = sum(c["cost"] for c in camps.values())
     total_rev = sum(c["revenue"] for c in camps.values())
@@ -380,6 +417,7 @@ def fetch_deeper(account_name: str, mcc_key: str, start_str: str, end_str: str) 
         "aov": round(total_rev / total_conv, 2) if total_conv > 0 else 0,
         "impressionShare": round(avg_is, 1),
         "daily": daily_list,
+        "campaigns": campaign_list,
         "products": prod_list,
     }
 
