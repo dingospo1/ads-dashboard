@@ -857,7 +857,7 @@ function loadMcTab() {
       const allAccounts = [
         ...(data.happy || []).map(a => ({...a, mcc: 'Happy Mondays'})),
         ...(data.upscale || []).map(a => ({...a, mcc: 'Upscale'})),
-      ].filter(a => a.merchantId && !isBlocked(a));
+      ].filter(a => !isBlocked(a));
       if (!allAccounts.length) {
         loadingEl.textContent = 'No Merchant Center accounts found. Make sure your GMC accounts are linked to Google Ads.';
         return;
