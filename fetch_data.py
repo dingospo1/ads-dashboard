@@ -738,9 +738,22 @@ def fetch_segment(account_id: str, mcc_key: str, start_str: str, end_str: str,
         WHERE segments.date BETWEEN '{start_str}' AND '{end_str}'
     """)
 
+    # Log first row to diagnose field name issues
+    if rows:
+        logger.info("fetch_segment sample segments keys for %s (%s): %s",
+                    segment_key, account_id, list(rows[0].get("segments", {}).keys()))
+
     groups: dict = {}
     for r in rows:
-        val = r["segments"].get(json_key) or "(not set)"
+        seg = r.get("segments", {})
+        # Try camelCase key first, then lowercase variant, then snake_case
+        val = (seg.get(json_key)
+               or seg.get(json_key[0].lower() + json_key[1:])
+               or seg.get(gaql_field.split(".")[-1])
+               or "")
+        val = val.strip() if val else "(not set)"
+        if not val:
+            val = "(not set)"
         if val not in groups:
             groups[val] = {"name": val, "cost": 0.0, "revenue": 0.0,
                            "conversions": 0.0, "clicks": 0, "impressions": 0}

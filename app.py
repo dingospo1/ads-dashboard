@@ -288,6 +288,34 @@ def api_deeper_segment():
     return jsonify(result)
 
 
+@app.route("/api/segment-debug")
+def api_segment_debug():
+    """Debug: returns first 3 raw rows from shopping_performance_view for a given account."""
+    account_id = request.args.get("account_id", "").strip()
+    mcc_key    = request.args.get("mcc", "happy").strip()
+    from fetch_data import gaql, get_token, MCCS, SEGMENT_FIELDS
+    if not account_id:
+        return jsonify({"error": "pass ?account_id=XXXXXXXXX&mcc=happy"}), 400
+    mcc = MCCS.get(mcc_key)
+    if not mcc:
+        return jsonify({"error": "bad mcc"}), 400
+    try:
+        token = get_token(mcc_key)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    from datetime import date, timedelta
+    end = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
+    start = (date.today() - timedelta(days=8)).strftime("%Y-%m-%d")
+    fields = ", ".join(f for f, _ in SEGMENT_FIELDS.values())
+    rows = gaql(token, account_id, mcc["login_customer_id"], f"""
+        SELECT {fields}, metrics.cost_micros
+        FROM shopping_performance_view
+        WHERE segments.date BETWEEN '{start}' AND '{end}'
+        LIMIT 3
+    """)
+    return jsonify([r.get("segments", {}) for r in rows])
+
+
 @app.route("/api/accounts")
 def api_accounts():
     """Debug endpoint — returns raw account IDs and descriptiveNames from the Google Ads API."""
