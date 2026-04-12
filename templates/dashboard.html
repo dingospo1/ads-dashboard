@@ -440,10 +440,10 @@ const ACCOUNT_META = {
 };
 
 const HAPPY_WHITELIST = [
-  "Lucky Honey","Anavrin","Vintage Muscle","Plum Play UK",
-  "Home Teeth Whitening","Warrior Willpower","Aromely","Dons Liquors","Ring Come True"
+  "Home Teeth Whitening","Lucky Honey","Warrior Willpower","Anavrin",
+  "Aromely","Plum Play UK","Don's Liquors & Wine","Dons Liquors","Ring Come True"
 ];
-const UPSCALE_WHITELIST = ["MCM Ecom","SilverAnt","HGV Direct","Value Canvas Prints"];
+const UPSCALE_WHITELIST = ["SilverAnt","MCM Ecom","MCM ECOM LLC","HGV Direct","Value Canvas Prints"];
 
 /* ============================================================
    STATE
@@ -454,8 +454,15 @@ const rangeType = "{{ range_type }}";
 const customStart = "{{ custom_start }}";
 const customEnd = "{{ custom_end }}";
 
-let happyAccounts = JSON.parse(JSON.stringify(rawData.happy || []));
-let upscaleAccounts = JSON.parse(JSON.stringify(rawData.upscale || []));
+function normName(s) { return (s||'').toLowerCase().replace(/[^a-z0-9]/g,''); }
+const happyNorm  = HAPPY_WHITELIST.map(normName);
+const upscaleNorm = UPSCALE_WHITELIST.map(normName);
+let happyAccounts = JSON.parse(JSON.stringify(
+  (rawData.happy || []).filter(a => happyNorm.includes(normName(a.name)))
+));
+let upscaleAccounts = JSON.parse(JSON.stringify(
+  (rawData.upscale || []).filter(a => upscaleNorm.includes(normName(a.name)))
+));
 let compareData = null;
 let activeTab = 'happy';
 let campFilter = 'active'; // 'active','paused','all'
