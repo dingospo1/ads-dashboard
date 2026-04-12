@@ -1378,7 +1378,7 @@ function buildDeeperChart(d) {
 
 function buildProdHtml(d) {
   const target = getTargetRoas(modal.account);
-  const MAX_PRODS = 20;
+  const MAX_PRODS = 15;
   function thP(label, field) {
     const isActive = modal.prodSortCol === field;
     const arrow = isActive ? (modal.prodSortDir==='desc'?' &#9660;':' &#9650;') : ' <span style="opacity:0.3">&#8597;</span>';
@@ -1408,7 +1408,7 @@ function buildProdHtml(d) {
     '</tr>';
   }).join('');
   const moreBtn = (!modal.prodShowAll && sorted.length > MAX_PRODS)
-    ? '<button class="toggle-btn" onclick="showAllModalProds()" style="margin-top:8px">Show ' + (sorted.length - MAX_PRODS) + ' more products</button>' : '';
+    ? '<button class="toggle-btn" onclick="showAllModalProds()" style="margin-top:8px">Show ' + (sorted.length - MAX_PRODS) + ' more</button>' : '';
   return '<div class="modal-section-title">Products <span style="font-weight:400;color:#4b5563;font-size:11px;text-transform:none;letter-spacing:0">(top ' + sorted.length + ' by spend)</span></div>' +
     '<div class="data-table-wrap"><table class="data-table"><thead><tr>' +
     '<th style="text-align:left">Product</th>' +
