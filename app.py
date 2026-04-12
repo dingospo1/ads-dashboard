@@ -12,7 +12,8 @@ from flask import Flask, render_template, jsonify, request
 
 from fetch_data import (
     fetch_all, fetch_all_for_range, fetch_deeper, compute_date_range,
-    fetch_all_mc_status, get_token, list_child_accounts, MCCS
+    fetch_all_mc_status, fetch_segment, get_token, list_child_accounts,
+    MCCS, SEGMENT_FIELDS
 )
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -232,6 +233,32 @@ def api_mc_status():
     except Exception as e:
         logger.error("MC status fetch failed: %s", e)
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/deeper-segment")
+def api_deeper_segment():
+    """Fetch shopping_performance_view grouped by product type or custom label."""
+    account_id  = request.args.get("account_id", "").strip()
+    mcc         = request.args.get("mcc", "").strip()
+    segment_key = request.args.get("segment", "product_type_l1").strip()
+    days        = int(request.args.get("days", 7))
+    range_type  = request.args.get("range", "").strip()
+    custom_start = request.args.get("start", "")
+    custom_end   = request.args.get("end", "")
+
+    if segment_key not in SEGMENT_FIELDS:
+        return jsonify({"error": f"Unknown segment: {segment_key}"}), 400
+    if mcc not in ("happy", "upscale"):
+        return jsonify({"error": "Invalid mcc"}), 400
+
+    start_str, end_str = compute_date_range(
+        days=days,
+        range_type=range_type or None,
+        custom_start=custom_start or None,
+        custom_end=custom_end or None,
+    )
+    result = fetch_segment(account_id, mcc, start_str, end_str, segment_key)
+    return jsonify(result)
 
 
 @app.route("/api/accounts")

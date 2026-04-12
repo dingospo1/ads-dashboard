@@ -673,6 +673,74 @@ def fetch_all_mc_status(cached_data: dict) -> dict:
     return result
 
 
+# Segment fields: key → (GAQL field, JSON camelCase key in response)
+SEGMENT_FIELDS = {
+    "product_type_l1": ("segments.product_type_l1", "productTypeL1"),
+    "product_type_l2": ("segments.product_type_l2", "productTypeL2"),
+    "product_type_l3": ("segments.product_type_l3", "productTypeL3"),
+    "product_type_l4": ("segments.product_type_l4", "productTypeL4"),
+    "custom_label_0":  ("segments.product_custom_attribute0", "productCustomAttribute0"),
+    "custom_label_1":  ("segments.product_custom_attribute1", "productCustomAttribute1"),
+    "custom_label_2":  ("segments.product_custom_attribute2", "productCustomAttribute2"),
+    "custom_label_3":  ("segments.product_custom_attribute3", "productCustomAttribute3"),
+    "custom_label_4":  ("segments.product_custom_attribute4", "productCustomAttribute4"),
+}
+
+
+def fetch_segment(account_id: str, mcc_key: str, start_str: str, end_str: str,
+                  segment_key: str) -> dict:
+    """Fetch shopping_performance_view grouped by a single segment dimension.
+    Uses account_id directly so no list_child_accounts call is needed."""
+    if segment_key not in SEGMENT_FIELDS:
+        return {"error": f"Unknown segment: {segment_key}"}
+
+    gaql_field, json_key = SEGMENT_FIELDS[segment_key]
+    mcc = MCCS.get(mcc_key)
+    if not mcc:
+        return {"error": f"Unknown MCC: {mcc_key}"}
+
+    try:
+        token = get_token(mcc_key)
+    except Exception as e:
+        return {"error": f"Auth failed: {e}"}
+
+    login_id = mcc["login_customer_id"]
+    rows = gaql(token, account_id, login_id, f"""
+        SELECT {gaql_field},
+        metrics.cost_micros,
+        metrics.conversions_value,
+        metrics.conversions,
+        metrics.clicks, metrics.impressions
+        FROM shopping_performance_view
+        WHERE segments.date BETWEEN '{start_str}' AND '{end_str}'
+    """)
+
+    groups: dict = {}
+    for r in rows:
+        val = r["segments"].get(json_key) or "(not set)"
+        if val not in groups:
+            groups[val] = {"name": val, "cost": 0.0, "revenue": 0.0,
+                           "conversions": 0.0, "clicks": 0, "impressions": 0}
+        g = groups[val]
+        g["cost"]        += int(r["metrics"].get("costMicros", 0)) / 1e6
+        g["revenue"]     += float(r["metrics"].get("conversionsValue", 0))
+        g["conversions"] += float(r["metrics"].get("conversions", 0))
+        g["clicks"]      += int(r["metrics"].get("clicks", 0))
+        g["impressions"] += int(r["metrics"].get("impressions", 0))
+
+    items = sorted(groups.values(), key=lambda x: x["cost"], reverse=True)
+    for item in items:
+        item["cost"]        = round(item["cost"], 2)
+        item["revenue"]     = round(item["revenue"], 2)
+        item["conversions"] = round(item["conversions"], 1)
+        item["roas"]        = round(item["revenue"] / item["cost"], 2) if item["cost"] > 0 else 0
+        item["cpc"]         = round(item["cost"] / item["clicks"], 2)  if item["clicks"] > 0 else 0
+        item["ctr"]         = round(item["clicks"] / item["impressions"] * 100, 2) if item["impressions"] > 0 else 0
+        item["aov"]         = round(item["revenue"] / item["conversions"], 2) if item["conversions"] > 0 else 0
+
+    return {"segment": segment_key, "items": items}
+
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     result = fetch_all()

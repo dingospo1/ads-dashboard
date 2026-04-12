@@ -193,7 +193,10 @@ select.ctrl:focus { outline: none; border-color: #34d399; }
 .chart-no-data { display: flex; align-items: center; justify-content: center; height: 100%; color: #4b5563; font-size: 13px; }
 .th-sort { cursor: pointer; user-select: none; white-space: nowrap; }
 .th-sort:hover { color: #e1e4e8; }
-.modal-section-title { font-size: 12px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 10px; }
+.modal-section-title { font-size: 12px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 10px; display: flex; align-items: center; gap: 10px; }
+.seg-loading { color: #6b7280; font-size: 12px; padding: 16px 0; }
+.seg-empty { color: #4b5563; font-size: 12px; padding: 12px 0; }
+#seg-pt-section, #seg-cl-section { margin-top: 28px; }
 .data-table-wrap { overflow-x: auto; margin-bottom: 24px; }
 .data-table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .data-table th { text-align: right; font-size: 10px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; padding: 6px 10px; border-bottom: 1px solid #2a2d3a; white-space: nowrap; font-weight: 600; }
@@ -879,6 +882,8 @@ let modal = {
   chartGranularity: 'daily',
   campShowAll: false,
   prodSortCol: 'cost', prodSortDir: 'desc', prodShowAll: false,
+  ptLevel: '1', ptSort: 'cost', ptSortDir: 'desc', ptData: null,
+  clLevel: '0', clSort: 'cost', clSortDir: 'desc', clData: null,
   data: null, cmpData: null
 };
 
@@ -903,6 +908,8 @@ function openDeeperDive(accountName, mccKey) {
   modal.campShowAll = false;
   loadCardPrefs();
   modal.prodSortCol = 'cost'; modal.prodSortDir = 'desc'; modal.prodShowAll = false;
+  modal.ptLevel = '1'; modal.ptSort = 'cost'; modal.ptSortDir = 'desc'; modal.ptData = null;
+  modal.clLevel = '0'; modal.clSort = 'cost'; modal.clSortDir = 'desc'; modal.clData = null;
   modal.data = null; modal.cmpData = null;
 
   document.getElementById('modal-range').value = 'days-7';
@@ -1417,6 +1424,131 @@ function buildProdHtml(d) {
     '</tr></thead><tbody>' + rows + '</tbody></table></div>' + moreBtn;
 }
 
+/* ── Segment Sections ── */
+function buildSegmentSectionHtml(sectionId, title, levelOptions, levelVal, levelParam, sortCol, sortDir, data, onChangeFn, onSortFn) {
+  const target = getTargetRoas(modal.account);
+  function thS(label, field) {
+    const isActive = sortCol === field;
+    const arrow = isActive ? (sortDir==='desc'?' &#9660;':' &#9650;') : ' <span style="opacity:0.3">&#8597;</span>';
+    return '<th class="th-sort" onclick="' + onSortFn + '(\'' + field + '\')" style="color:' + (isActive?'#e1e4e8':'#6b7280') + '">' + label + arrow + '</th>';
+  }
+
+  const levelSelect = '<select class="ctrl" style="font-size:11px;padding:4px 22px 4px 8px" onchange="' + onChangeFn + '(this.value)">' +
+    levelOptions.map(o => '<option value="' + o.value + '"' + (o.value===levelVal?' selected':'') + '>' + o.label + '</option>').join('') +
+    '</select>';
+
+  let bodyHtml;
+  if (!data) {
+    bodyHtml = '<div class="seg-loading">Loading...</div>';
+  } else if (!data.items || data.items.length === 0) {
+    bodyHtml = '<div class="seg-empty">No data for this segment in the selected period.</div>';
+  } else {
+    const rows = [...data.items].sort((a,b) => sortDir==='desc' ? b[sortCol]-a[sortCol] : a[sortCol]-b[sortCol]).map(item => {
+      const roasCl = item.roas>=target?'#34d399':item.roas>=target*0.7?'#fbbf24':'#f87171';
+      return '<tr>' +
+        '<td style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (item.label || '(not set)') + '</td>' +
+        '<td>' + fmtDec(item.cost) + '</td>' +
+        '<td>' + fmtDec(item.revenue) + '</td>' +
+        '<td style="color:' + roasCl + '">' + fmtRoas(item.roas) + '</td>' +
+        '<td>' + item.conversions.toFixed(1) + '</td>' +
+        '<td>' + fmtDec(item.cpc) + '</td>' +
+        '<td>' + fmtPct(item.ctr) + '</td>' +
+        '<td>' + (item.aov > 0 ? fmt(item.aov) : '—') + '</td>' +
+      '</tr>';
+    }).join('');
+    bodyHtml = '<div class="data-table-wrap"><table class="data-table"><thead><tr>' +
+      '<th style="text-align:left">' + title + '</th>' +
+      thS('Cost','cost') + thS('Revenue','revenue') + thS('ROAS','roas') +
+      thS('Conv.','conversions') + thS('CPC','cpc') + thS('CTR','ctr') + thS('AOV','aov') +
+      '</tr></thead><tbody>' + rows + '</tbody></table></div>';
+  }
+
+  return '<div id="' + sectionId + '">' +
+    '<div class="modal-section-title">' + title + ' ' + levelSelect + '</div>' +
+    bodyHtml + '</div>';
+}
+
+function loadSegmentData(type) {
+  const acc = modal.data;
+  if (!acc) return;
+  const accountId = modal.accountId;
+  if (!accountId) {
+    if (type === 'pt') { modal.ptData = { items: [] }; refreshSegSection('pt'); }
+    else { modal.clData = { items: [] }; refreshSegSection('cl'); }
+    return;
+  }
+
+  const segKey = type === 'pt'
+    ? 'product_type_l' + modal.ptLevel
+    : 'custom_label_' + modal.clLevel;
+
+  const params = new URLSearchParams({
+    account_id: accountId,
+    mcc: modal.mcc,
+    segment: segKey,
+    days: modal.days,
+    range: modal.rangeType || '',
+    start: modal.customStart || '',
+    end: modal.customEnd || ''
+  });
+
+  fetch('/api/deeper-segment?' + params.toString())
+    .then(r => r.json())
+    .then(data => {
+      if (type === 'pt') modal.ptData = data;
+      else modal.clData = data;
+      refreshSegSection(type);
+    })
+    .catch(() => {
+      if (type === 'pt') modal.ptData = { items: [] };
+      else modal.clData = { items: [] };
+      refreshSegSection(type);
+    });
+}
+
+function refreshSegSection(type) {
+  const el = document.getElementById(type === 'pt' ? 'seg-pt-section' : 'seg-cl-section');
+  if (!el) return;
+  const levelOptions = type === 'pt'
+    ? [{value:'1',label:'Product Type L1'},{value:'2',label:'Product Type L2'},{value:'3',label:'Product Type L3'},{value:'4',label:'Product Type L4'}]
+    : [{value:'0',label:'Custom Label 0'},{value:'1',label:'Custom Label 1'},{value:'2',label:'Custom Label 2'},{value:'3',label:'Custom Label 3'},{value:'4',label:'Custom Label 4'}];
+  const title = type === 'pt' ? 'Performance by Product Type' : 'Performance by Custom Label';
+  const sectionId = type === 'pt' ? 'seg-pt-section' : 'seg-cl-section';
+  const levelVal = type === 'pt' ? modal.ptLevel : modal.clLevel;
+  const sortCol = type === 'pt' ? modal.ptSort : modal.clSort;
+  const sortDir = type === 'pt' ? modal.ptSortDir : modal.clSortDir;
+  const data = type === 'pt' ? modal.ptData : modal.clData;
+  const onChangeFn = type === 'pt' ? 'changeSegLevel_pt' : 'changeSegLevel_cl';
+  const onSortFn = type === 'pt' ? 'sortSegCol_pt' : 'sortSegCol_cl';
+  el.outerHTML = buildSegmentSectionHtml(sectionId, title, levelOptions, levelVal, type, sortCol, sortDir, data, onChangeFn, onSortFn);
+}
+
+function changeSegLevel_pt(val) {
+  modal.ptLevel = val;
+  modal.ptData = null;
+  refreshSegSection('pt');
+  loadSegmentData('pt');
+}
+
+function changeSegLevel_cl(val) {
+  modal.clLevel = val;
+  modal.clData = null;
+  refreshSegSection('cl');
+  loadSegmentData('cl');
+}
+
+function sortSegCol_pt(field) {
+  if (modal.ptSort === field) modal.ptSortDir = modal.ptSortDir === 'desc' ? 'asc' : 'desc';
+  else { modal.ptSort = field; modal.ptSortDir = 'desc'; }
+  refreshSegSection('pt');
+}
+
+function sortSegCol_cl(field) {
+  if (modal.clSort === field) modal.clSortDir = modal.clSortDir === 'desc' ? 'asc' : 'desc';
+  else { modal.clSort = field; modal.clSortDir = 'desc'; }
+  refreshSegSection('cl');
+}
+
 function renderDeeperDive() {
   const d = modal.data;
   if (!d) return;
@@ -1435,9 +1567,19 @@ function renderDeeperDive() {
     '</div>' +
     '<div class="chart-wrap"><canvas id="deeper-chart"></canvas></div>' +
     '<div id="modal-camp-section">' + buildCampHtml(d, cmp) + '</div>' +
-    '<div id="modal-prod-section">' + buildProdHtml(d) + '</div>';
+    '<div id="modal-prod-section">' + buildProdHtml(d) + '</div>' +
+    buildSegmentSectionHtml('seg-pt-section', 'Performance by Product Type',
+      [{value:'1',label:'Product Type L1'},{value:'2',label:'Product Type L2'},{value:'3',label:'Product Type L3'},{value:'4',label:'Product Type L4'}],
+      modal.ptLevel, 'pt', modal.ptSort, modal.ptSortDir, modal.ptData, 'changeSegLevel_pt', 'sortSegCol_pt') +
+    buildSegmentSectionHtml('seg-cl-section', 'Performance by Custom Label',
+      [{value:'0',label:'Custom Label 0'},{value:'1',label:'Custom Label 1'},{value:'2',label:'Custom Label 2'},{value:'3',label:'Custom Label 3'},{value:'4',label:'Custom Label 4'}],
+      modal.clLevel, 'cl', modal.clSort, modal.clSortDir, modal.clData, 'changeSegLevel_cl', 'sortSegCol_cl');
 
   buildDeeperChart(d);
+
+  // Lazy-load segment data if not already loaded
+  if (!modal.ptData) loadSegmentData('pt');
+  if (!modal.clData) loadSegmentData('cl');
 }
 
 /* ============================================================
