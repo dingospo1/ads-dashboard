@@ -319,12 +319,26 @@ def api_segment_debug():
 @app.route("/api/accounts")
 def api_accounts():
     """Debug endpoint — returns raw account IDs and descriptiveNames from the Google Ads API."""
+    import requests as req
     result = {}
     for mcc_key, mcc in MCCS.items():
         try:
             token = get_token(mcc_key)
-            accounts = list_child_accounts(token, mcc["login_customer_id"])
-            result[mcc_key] = [{"id": str(a["id"]), "name": a["name"]} for a in accounts]
+            login_id = mcc["login_customer_id"]
+            # Call API directly to capture any error response
+            url = f"https://googleads.googleapis.com/v20/customers/{login_id}/googleAds:searchStream"
+            resp = req.post(url, headers={
+                "Authorization": f"Bearer {token}",
+                "developer-token": "yZwRitD8t90ZfDP_dc7IlQ",
+                "login-customer-id": login_id,
+                "Content-Type": "application/json",
+            }, json={"query": "SELECT customer_client.id, customer_client.descriptive_name FROM customer_client WHERE customer_client.level = 1"}, timeout=15)
+            if resp.ok:
+                chunks = resp.json()
+                rows = [r for c in chunks for r in c.get("results", [])]
+                result[mcc_key] = [{"id": str(r["customerClient"]["id"]), "name": r["customerClient"].get("descriptiveName", "")} for r in rows]
+            else:
+                result[mcc_key] = {"error": f"HTTP {resp.status_code}", "body": resp.text[:500]}
         except Exception as e:
             result[mcc_key] = {"error": str(e)}
     return jsonify(result)
