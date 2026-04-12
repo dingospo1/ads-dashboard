@@ -925,11 +925,11 @@ function buildMcCard(acc) {
   if (rate < 80) barColor = '#f87171';
   else if (rate < 95) barColor = '#fbbf24';
 
-  // Top disapproval reasons
+  // Issues list (disapproved + limited, merchant-actionable)
   const reasons = acc.topReasons || [];
   const reasonsHtml = reasons.length
     ? '<div class="mc-reasons">' +
-        '<div class="mc-reasons-title">Top Disapproval Reasons</div>' +
+        '<div class="mc-reasons-title">Issues</div>' +
         reasons.map(r =>
           '<div class="mc-reason-row">' +
             '<span class="mc-reason-name">' + r.reason + '</span>' +
@@ -937,7 +937,7 @@ function buildMcCard(acc) {
           '</div>'
         ).join('') +
       '</div>'
-    : (disapproved > 0 ? '<div class="mc-error">No specific reasons available.</div>' : '');
+    : (acc._loading ? '' : (total > 0 ? '<div class="mc-reasons"><div class="mc-reasons-title">Issues</div><div class="mc-reason-row"><span class="mc-reason-name" style="color:#34d399">No issues found</span></div></div>' : ''));
 
   const mcUrl = mid ? 'https://merchants.google.com/mc/overview?a=' + mid : null;
   const mcLink = mcUrl

@@ -632,11 +632,10 @@ def fetch_mc_status(merchant_id: int, token: str) -> dict:
     approved = 0
     disapproved = 0
     pending = 0
-    reason_counts = {}
+    issue_counts = {}  # all merchant-actionable issues across all products
 
     for ps in all_statuses:
         dests = ps.get("destinationStatuses", [])
-        # A product is considered approved if at least one destination is approved
         statuses_for_product = set()
         for dest in dests:
             approval = dest.get("approvalStatus") or dest.get("status", "")
@@ -646,15 +645,16 @@ def fetch_mc_status(merchant_id: int, token: str) -> dict:
             approved += 1
         elif "DISAPPROVED" in statuses_for_product:
             disapproved += 1
-            # Count disapproval reasons from itemLevelIssues
-            for issue in ps.get("itemLevelIssues", []):
-                if issue.get("resolution") == "merchant_action":
-                    reason = issue.get("description") or issue.get("code") or "Unknown"
-                    reason_counts[reason] = reason_counts.get(reason, 0) + 1
         else:
             pending += 1
 
-    top_reasons = sorted(reason_counts.items(), key=lambda x: x[1], reverse=True)[:5]
+        # Count ALL merchant-actionable issues (disapproved + limited)
+        for issue in ps.get("itemLevelIssues", []):
+            if issue.get("resolution") == "merchant_action":
+                reason = issue.get("description") or issue.get("code") or "Unknown"
+                issue_counts[reason] = issue_counts.get(reason, 0) + 1
+
+    top_issues = sorted(issue_counts.items(), key=lambda x: x[1], reverse=True)[:8]
     approval_rate = round(approved / total * 100, 1) if total > 0 else 0
 
     return {
@@ -663,7 +663,7 @@ def fetch_mc_status(merchant_id: int, token: str) -> dict:
         "disapproved": disapproved,
         "pending": pending,
         "approvalRate": approval_rate,
-        "topReasons": [{"reason": r, "count": c} for r, c in top_reasons],
+        "topReasons": [{"reason": r, "count": c} for r, c in top_issues],
     }
 
 
