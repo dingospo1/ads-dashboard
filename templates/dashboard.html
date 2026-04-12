@@ -189,8 +189,8 @@ select.ctrl:focus { outline: none; border-color: #34d399; }
       <button class="apply-btn" onclick="applyCustomRange()">Apply</button>
     </div>
     <select class="ctrl" id="compare-select" onchange="changeCompare(this.value)">
-      <option value="none" selected>No comparison</option>
-      <option value="period">vs Previous period</option>
+      <option value="none">No comparison</option>
+      <option value="period" selected>vs Previous period</option>
       <option value="year">vs Previous year</option>
     </select>
     <span class="live-dot"></span>
@@ -885,6 +885,8 @@ function renderDeeperDive() {
    ============================================================ */
 setTimeout(() => window.location.reload(), 3600000);
 renderAll();
+// Default: load comparison vs previous period on every page load
+changeCompare('period');
 </script>
 </body>
 </html>
