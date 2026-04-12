@@ -22,6 +22,14 @@
   .live-dot { width: 8px; height: 8px; border-radius: 50%; background: #34d399; display: inline-block; animation: pulse 2s infinite; }
   @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 
+  /* MCC Tabs */
+  .tab-bar { display: flex; gap: 0; margin-bottom: 20px; border-bottom: 1px solid #2a2d3a; }
+  .tab { padding: 10px 20px; font-size: 13px; font-weight: 600; color: #6b7280; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s; }
+  .tab:hover { color: #e1e4e8; }
+  .tab.active { color: #34d399; border-bottom-color: #34d399; }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
   .sort-bar { display: flex; gap: 8px; margin-bottom: 16px; align-items: center; }
   .sort-label { font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; }
   .sort-btn { background: #1a1d27; border: 1px solid #2a2d3a; color: #9ca3af; font-size: 11px; padding: 4px 10px; border-radius: 4px; cursor: pointer; transition: all 0.15s; }
@@ -71,8 +79,8 @@
   .campaign-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #c9cdd5; padding-right: 12px; }
   .status-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 6px; }
   .dot-green { background: #34d399; } .dot-yellow { background: #fbbf24; } .dot-red { background: #f87171; } .dot-gray { background: #6b7280; }
-  .campaign-metric { width: 80px; text-align: right; flex-shrink: 0; font-size: 12px; color: #9ca3af; }
-  .campaign-metric.roas { width: 60px; font-weight: 600; }
+  .campaign-metric { width: 90px; text-align: right; flex-shrink: 0; font-size: 12px; color: #9ca3af; }
+  .campaign-metric.roas { width: 70px; font-weight: 600; }
   .roas-green { color: #34d399; } .roas-yellow { color: #fbbf24; } .roas-red { color: #f87171; }
   .toggle-btn { background: none; border: 1px solid #2a2d3a; color: #6b7280; font-size: 11px; padding: 2px 8px; border-radius: 4px; cursor: pointer; margin-top: 6px; }
   .toggle-btn:hover { color: #e1e4e8; border-color: #4a4d5a; }
@@ -132,10 +140,24 @@
 
 <div class="compare-loading" id="compare-loading" style="display:none">Loading comparison data...</div>
 
-<div class="mcc-label">Happy Mondays MCC</div>
-<div class="grid" id="happy"></div>
-<div class="mcc-label">Upscale MCC</div>
-<div class="grid" id="upscale"></div>
+<div class="tab-bar">
+  <div class="tab active" data-tab="all" onclick="switchTab('all')">All</div>
+  <div class="tab" data-tab="happy" onclick="switchTab('happy')">Happy Mondays</div>
+  <div class="tab" data-tab="upscale" onclick="switchTab('upscale')">Upscale</div>
+</div>
+
+<div class="tab-content active" id="tab-all">
+  <div class="mcc-label">Happy Mondays MCC</div>
+  <div class="grid" id="happy-all"></div>
+  <div class="mcc-label">Upscale MCC</div>
+  <div class="grid" id="upscale-all"></div>
+</div>
+<div class="tab-content" id="tab-happy">
+  <div class="grid" id="happy-tab"></div>
+</div>
+<div class="tab-content" id="tab-upscale">
+  <div class="grid" id="upscale-tab"></div>
+</div>
 
 <script>
 const data = {{ data_json | safe }};
@@ -143,7 +165,8 @@ const currentDays = {{ current_days }};
 
 let happyAccounts = JSON.parse(JSON.stringify(data.happy || []));
 let upscaleAccounts = JSON.parse(JSON.stringify(data.upscale || []));
-let compareData = null; // { happy: [...], upscale: [...] } with account-level totals
+let compareData = null;
+let activeTab = 'all';
 
 function fmt(n) { return '$' + n.toLocaleString('en-US', {maximumFractionDigits: 0}); }
 function fmtDec(n) { return '$' + n.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}); }
@@ -174,6 +197,12 @@ function getCompare(name, mccKey) {
   return list.find(a => a.name === name) || null;
 }
 
+function getCampaignCompare(accountName, campaignName, mccKey) {
+  const acc = getCompare(accountName, mccKey);
+  if (!acc || !acc.campaigns) return null;
+  return acc.campaigns.find(c => c.name === campaignName) || null;
+}
+
 function renderCard(account, mccKey) {
   const rc = roasClass(account.totalRoas);
   const maxShow = 8;
@@ -188,11 +217,15 @@ function renderCard(account, mccKey) {
 
   let rows = campaigns.map((c, i) => {
     const hidden = (showToggle && i >= maxShow) ? ' style="display:none"' : '';
+    const ccmp = getCampaignCompare(account.name, c.name, mccKey);
+    const cCostD = ccmp ? deltaHtml(pctChange(c.cost, ccmp.cost), true) : '';
+    const cRevD = ccmp ? deltaHtml(pctChange(c.revenue, ccmp.revenue), false) : '';
+    const cRoasD = ccmp ? deltaHtml(pctChange(c.roas, ccmp.roas), false) : '';
     return '<div class="campaign-row" data-group="' + id + '" data-cost="' + c.cost + '" data-revenue="' + c.revenue + '" data-roas="' + c.roas + '"' + hidden + '>' +
       '<div class="campaign-name"><span class="status-dot ' + statusDot(c.status) + '"></span>' + c.name + '</div>' +
-      '<div class="campaign-metric">' + fmtDec(c.cost) + '</div>' +
-      '<div class="campaign-metric">' + fmtDec(c.revenue) + '</div>' +
-      '<div class="campaign-metric roas roas-' + roasClass(c.roas) + '">' + c.roas.toFixed(2) + 'x</div>' +
+      '<div class="campaign-metric">' + fmtDec(c.cost) + cCostD + '</div>' +
+      '<div class="campaign-metric">' + fmtDec(c.revenue) + cRevD + '</div>' +
+      '<div class="campaign-metric roas roas-' + roasClass(c.roas) + '">' + c.roas.toFixed(2) + 'x' + cRoasD + '</div>' +
     '</div>';
   }).join('');
 
@@ -322,9 +355,59 @@ function manualRefresh() {
     .catch(() => { btn.textContent = 'Error'; btn.classList.remove('loading'); });
 }
 
+function switchTab(tab) {
+  activeTab = tab;
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.toggle('active', t.id === 'tab-' + tab));
+  updateSummary();
+}
+
+function updateSummary() {
+  let accs;
+  if (activeTab === 'happy') accs = happyAccounts;
+  else if (activeTab === 'upscale') accs = upscaleAccounts;
+  else accs = happyAccounts.concat(upscaleAccounts);
+
+  const tc = accs.reduce((s, a) => s + a.totalCost, 0);
+  const tr = accs.reduce((s, a) => s + a.totalRevenue, 0);
+  const roas = tc > 0 ? (tr / tc) : 0;
+  const camps = accs.reduce((s, a) => s + a.campaigns.filter(c => c.cost > 0).length, 0);
+
+  document.getElementById('s-accounts').textContent = accs.length;
+  document.getElementById('s-cost').textContent = '$' + tc.toLocaleString('en-US', {maximumFractionDigits: 0});
+  document.getElementById('s-rev').textContent = '$' + tr.toLocaleString('en-US', {maximumFractionDigits: 0});
+  document.getElementById('s-roas').textContent = roas.toFixed(2) + 'x';
+
+  // Update comparison deltas for active tab
+  if (compareData) {
+    let cmpAccs;
+    if (activeTab === 'happy') cmpAccs = compareData.happy || [];
+    else if (activeTab === 'upscale') cmpAccs = compareData.upscale || [];
+    else cmpAccs = (compareData.happy || []).concat(compareData.upscale || []);
+
+    const cmpCost = cmpAccs.reduce((s, a) => s + a.totalCost, 0);
+    const cmpRev = cmpAccs.reduce((s, a) => s + a.totalRevenue, 0);
+    const cmpRoas = cmpCost > 0 ? cmpRev / cmpCost : 0;
+
+    document.getElementById('sd-cost').innerHTML = deltaHtml(pctChange(tc, cmpCost), true);
+    document.getElementById('sd-rev').innerHTML = deltaHtml(pctChange(tr, cmpRev), false);
+    document.getElementById('sd-roas').innerHTML = deltaHtml(pctChange(roas, cmpRoas), false);
+  } else {
+    document.getElementById('sd-cost').innerHTML = '';
+    document.getElementById('sd-rev').innerHTML = '';
+    document.getElementById('sd-roas').innerHTML = '';
+  }
+}
+
 function renderAll() {
-  document.getElementById('happy').innerHTML = happyAccounts.map(a => renderCard(a, 'happy')).join('');
-  document.getElementById('upscale').innerHTML = upscaleAccounts.map(a => renderCard(a, 'upscale')).join('');
+  const hHtml = happyAccounts.map(a => renderCard(a, 'happy')).join('');
+  const uHtml = upscaleAccounts.map(a => renderCard(a, 'upscale')).join('');
+
+  document.getElementById('happy-all').innerHTML = hHtml;
+  document.getElementById('upscale-all').innerHTML = uHtml;
+  document.getElementById('happy-tab').innerHTML = hHtml;
+  document.getElementById('upscale-tab').innerHTML = uHtml;
+  updateSummary();
 }
 
 setTimeout(() => window.location.reload(), 3600000);

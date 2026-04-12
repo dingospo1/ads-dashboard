@@ -211,8 +211,43 @@ def fetch_all(days: int = 7) -> dict:
     return data
 
 
+def fetch_campaigns_for_range(token: str, account_id: str, login_customer_id: str,
+                               days: int = 7, offset: int = 0) -> list:
+    """Fetch campaign-level data for a shifted date range (used for comparison)."""
+    end = datetime.now() - timedelta(days=1 + offset)
+    start = end - timedelta(days=days - 1)
+    start_str = start.strftime("%Y-%m-%d")
+    end_str = end.strftime("%Y-%m-%d")
+
+    rows = gaql(
+        token, account_id, login_customer_id,
+        f"SELECT campaign.name, "
+        f"metrics.cost_micros, metrics.conversions_value_by_conversion_date "
+        f"FROM campaign WHERE campaign.status = 'ENABLED' "
+        f"AND segments.date BETWEEN '{start_str}' AND '{end_str}'"
+    )
+
+    camps = {}
+    for r in rows:
+        name = r["campaign"]["name"]
+        cost = int(r["metrics"].get("costMicros", 0)) / 1e6
+        value = float(r["metrics"].get("conversionsValueByConversionDate", 0))
+        if name not in camps:
+            camps[name] = {"name": name, "cost": 0, "revenue": 0}
+        camps[name]["cost"] += cost
+        camps[name]["revenue"] += value
+
+    result = []
+    for c in camps.values():
+        c["cost"] = round(c["cost"], 2)
+        c["revenue"] = round(c["revenue"], 2)
+        c["roas"] = round(c["revenue"] / c["cost"], 2) if c["cost"] > 0 else 0
+        result.append(c)
+    return result
+
+
 def fetch_all_for_range(days: int = 7, offset: int = 0) -> dict:
-    """Fetch account-level totals for a shifted date range.
+    """Fetch account and campaign-level data for a shifted date range.
     offset=7 means the period starts 7 extra days in the past.
     Used for comparison (previous period / previous year).
     """
@@ -233,26 +268,19 @@ def fetch_all_for_range(days: int = 7, offset: int = 0) -> dict:
             acc_id = str(acc["id"])
             acc_name = ACCOUNT_NAMES.get(acc_id, acc.get("name", acc_id))
             try:
-                end = datetime.now() - timedelta(days=1 + offset)
-                start = end - timedelta(days=days - 1)
-                start_str = start.strftime("%Y-%m-%d")
-                end_str = end.strftime("%Y-%m-%d")
-
-                rows = gaql(
+                campaigns = fetch_campaigns_for_range(
                     token, acc_id, mcc["login_customer_id"],
-                    f"SELECT metrics.cost_micros, metrics.conversions_value_by_conversion_date "
-                    f"FROM campaign WHERE campaign.status = 'ENABLED' "
-                    f"AND segments.date BETWEEN '{start_str}' AND '{end_str}'"
+                    days=days, offset=offset
                 )
-
-                total_cost = sum(int(r["metrics"].get("costMicros", 0)) / 1e6 for r in rows)
-                total_revenue = sum(float(r["metrics"].get("conversionsValueByConversionDate", 0)) for r in rows)
+                total_cost = sum(c["cost"] for c in campaigns)
+                total_revenue = sum(c["revenue"] for c in campaigns)
 
                 data[mcc_key].append({
                     "name": acc_name,
                     "totalCost": round(total_cost, 2),
                     "totalRevenue": round(total_revenue, 2),
                     "totalRoas": round(total_revenue / total_cost, 2) if total_cost > 0 else 0,
+                    "campaigns": campaigns,
                 })
                 logger.info("  [cmp] %s: $%.0f cost, $%.0f rev", acc_name, total_cost, total_revenue)
             except Exception as e:
