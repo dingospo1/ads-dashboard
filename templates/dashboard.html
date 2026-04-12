@@ -686,8 +686,11 @@ function renderCard(account, mccKey) {
    RENDER ALL
    ============================================================ */
 function renderAll() {
-  document.getElementById('happy-tab').innerHTML = happyAccounts.map(a => renderCard(a, 'happy')).join('') || '<p style="color:#6b7280;font-size:13px;padding:12px 0">No accounts to show</p>';
-  document.getElementById('upscale-tab').innerHTML = upscaleAccounts.map(a => renderCard(a, 'upscale')).join('') || '<p style="color:#6b7280;font-size:13px;padding:12px 0">No accounts to show</p>';
+  // If API data hasn't loaded yet (e.g. quota exhausted), show placeholder cards from static list
+  const happyToRender   = happyAccounts.length   ? happyAccounts   : STATIC_HAPPY.map(a => ({ ...a, totalCost: 0, totalRev: 0, totalConv: 0, roas: 0, campaigns: [] }));
+  const upscaleToRender = upscaleAccounts.length ? upscaleAccounts : STATIC_UPSCALE.map(a => ({ ...a, totalCost: 0, totalRev: 0, totalConv: 0, roas: 0, campaigns: [] }));
+  document.getElementById('happy-tab').innerHTML   = happyToRender.map(a => renderCard(a, 'happy')).join('');
+  document.getElementById('upscale-tab').innerHTML = upscaleToRender.map(a => renderCard(a, 'upscale')).join('');
   updateSummary();
 }
 
