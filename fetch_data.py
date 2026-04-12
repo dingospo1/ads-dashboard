@@ -492,6 +492,149 @@ def fetch_all_for_range(days: int = 7, offset: int = 0,
     return data
 
 
+def get_mc_token(mcc_key: str) -> str:
+    """Get an OAuth token that includes the Content API scope.
+    For service accounts, explicitly requests the content scope.
+    For OAuth, tries the same refresh token (works if authorized with content scope)."""
+    mcc = MCCS[mcc_key]
+    if mcc["auth"] == "service_account":
+        sa_json = mcc["service_account_json"]
+        if not sa_json:
+            raise ValueError("UPSCALE_SERVICE_ACCOUNT_JSON env var not set")
+        info = json.loads(sa_json)
+        creds = service_account.Credentials.from_service_account_info(
+            info,
+            scopes=[
+                "https://www.googleapis.com/auth/adwords",
+                "https://www.googleapis.com/auth/content",
+            ]
+        )
+        creds.refresh(Request())
+        return creds.token
+    else:
+        # OAuth: use same refresh token, Content API accepts adwords-scoped tokens
+        # for accounts where the user has MC access
+        return get_token(mcc_key)
+
+
+def fetch_mc_status(merchant_id: int, token: str) -> dict:
+    """Fetch product approval status for a Merchant Center account via Content API.
+    Returns a dict with total, approved, disapproved, pending counts and top disapproval reasons."""
+    base = f"https://shoppingcontent.googleapis.com/content/v2.1/{merchant_id}/productstatuses"
+    headers = {"Authorization": f"Bearer {token}"}
+    params = {"maxResults": 250, "fields": "resources(status,destinationStatuses),nextPageToken"}
+
+    all_statuses = []
+    page_token = None
+    pages = 0
+    max_pages = 40  # cap at 10k products
+
+    while pages < max_pages:
+        p = dict(params)
+        if page_token:
+            p["pageToken"] = page_token
+        try:
+            resp = requests.get(base, headers=headers, params=p, timeout=20)
+        except Exception as e:
+            logger.warning("MC fetch network error for %s: %s", merchant_id, e)
+            break
+
+        if resp.status_code in (401, 403):
+            logger.warning("MC auth error %s for merchant %s", resp.status_code, merchant_id)
+            return {"error": f"Access denied (HTTP {resp.status_code}). Token may lack Content API scope."}
+        if not resp.ok:
+            logger.warning("MC fetch error %s for merchant %s: %s", resp.status_code, merchant_id, resp.text[:200])
+            return {"error": f"API error {resp.status_code}"}
+
+        data = resp.json()
+        resources = data.get("resources", [])
+        all_statuses.extend(resources)
+        page_token = data.get("nextPageToken")
+        pages += 1
+        if not page_token:
+            break
+
+    if not all_statuses:
+        return {"total": 0, "approved": 0, "disapproved": 0, "pending": 0,
+                "approvalRate": 0, "topReasons": []}
+
+    total = len(all_statuses)
+    approved = 0
+    disapproved = 0
+    pending = 0
+    reason_counts = {}
+
+    for ps in all_statuses:
+        dests = ps.get("destinationStatuses", [])
+        # A product is considered approved if at least one destination is approved
+        statuses_for_product = set()
+        for dest in dests:
+            approval = dest.get("approvalStatus") or dest.get("status", "")
+            statuses_for_product.add(approval.upper())
+
+        if "APPROVED" in statuses_for_product:
+            approved += 1
+        elif "DISAPPROVED" in statuses_for_product:
+            disapproved += 1
+            # Count disapproval reasons from itemLevelIssues
+            for issue in ps.get("itemLevelIssues", []):
+                if issue.get("resolution") == "merchant_action":
+                    reason = issue.get("description") or issue.get("code") or "Unknown"
+                    reason_counts[reason] = reason_counts.get(reason, 0) + 1
+        else:
+            pending += 1
+
+    top_reasons = sorted(reason_counts.items(), key=lambda x: x[1], reverse=True)[:5]
+    approval_rate = round(approved / total * 100, 1) if total > 0 else 0
+
+    return {
+        "total": total,
+        "approved": approved,
+        "disapproved": disapproved,
+        "pending": pending,
+        "approvalRate": approval_rate,
+        "topReasons": [{"reason": r, "count": c} for r, c in top_reasons],
+    }
+
+
+def fetch_all_mc_status(cached_data: dict) -> dict:
+    """Build MC status for all accounts using merchant IDs already in cached_data.
+    Returns { "happy": [...], "upscale": [...] } with status per account."""
+    result = {"happy": [], "upscale": []}
+
+    for mcc_key in ["happy", "upscale"]:
+        accounts = cached_data.get(mcc_key, [])
+        if not accounts:
+            continue
+        try:
+            token = get_mc_token(mcc_key)
+        except Exception as e:
+            logger.error("MC token failed for %s: %s", mcc_key, e)
+            for acc in accounts:
+                result[mcc_key].append({
+                    "name": acc["name"],
+                    "merchantId": acc.get("merchantId", 0),
+                    "error": f"Auth failed: {e}",
+                })
+            continue
+
+        for acc in accounts:
+            mid = acc.get("merchantId", 0)
+            entry = {
+                "name": acc["name"],
+                "merchantId": mid,
+                "accountId": acc.get("accountId", ""),
+            }
+            if not mid:
+                entry["error"] = "No Merchant Center linked"
+            else:
+                status = fetch_mc_status(mid, token)
+                entry.update(status)
+            result[mcc_key].append(entry)
+
+    return result
+
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     result = fetch_all()

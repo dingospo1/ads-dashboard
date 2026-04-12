@@ -11,7 +11,8 @@ from datetime import datetime, date, timedelta
 from flask import Flask, render_template, jsonify, request
 
 from fetch_data import (
-    fetch_all, fetch_all_for_range, fetch_deeper, compute_date_range
+    fetch_all, fetch_all_for_range, fetch_deeper, compute_date_range,
+    fetch_all_mc_status
 )
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -212,6 +213,24 @@ def api_deeper():
         return jsonify(result)
     except Exception as e:
         logger.error("Deeper dive failed for %s: %s", account_name, e)
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/mc-status")
+def api_mc_status():
+    """Fetch Merchant Center product approval status for all accounts."""
+    # Use any cached data set to get merchant IDs (prefer the 7-day cache)
+    with _lock:
+        cached = _data.get(("rolling", 7)) or next(iter(_data.values()), None)
+
+    if not cached:
+        return jsonify({"error": "No cached data yet. Wait for initial refresh."}), 503
+
+    try:
+        result = fetch_all_mc_status(cached)
+        return jsonify(result)
+    except Exception as e:
+        logger.error("MC status fetch failed: %s", e)
         return jsonify({"error": str(e)}), 500
 
 

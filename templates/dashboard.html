@@ -118,6 +118,37 @@ select.ctrl:focus { outline: none; border-color: #34d399; }
 /* Compare loading */
 .compare-loading { font-size: 12px; color: #fbbf24; margin-bottom: 12px; }
 
+/* ======= MERCHANT CENTER TAB ======= */
+.mc-loading-msg { font-size: 13px; color: #6b7280; padding: 32px 0; text-align: center; }
+.mc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; }
+.mc-card { background: #1a1d27; border: 1px solid #2a2d3a; border-radius: 12px; padding: 18px; transition: border-color 0.2s; }
+.mc-card:hover { border-color: #3a3d4a; }
+.mc-card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; gap: 8px; }
+.mc-card-header h3 { font-size: 14px; font-weight: 700; }
+.mc-badge { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 20px; white-space: nowrap; flex-shrink: 0; }
+.mc-badge-green { background: #064e3b; color: #34d399; }
+.mc-badge-yellow { background: #713f12; color: #fbbf24; }
+.mc-badge-red { background: #7f1d1d; color: #f87171; }
+.mc-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 14px; }
+.mc-stat { text-align: center; background: #0f1117; border-radius: 8px; padding: 10px 6px; }
+.mc-stat-val { font-size: 18px; font-weight: 700; }
+.mc-stat-lbl { font-size: 10px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+.mc-stat-val.approved { color: #34d399; }
+.mc-stat-val.disapproved { color: #f87171; }
+.mc-stat-val.pending { color: #fbbf24; }
+.mc-progress-wrap { margin-bottom: 14px; }
+.mc-progress-label { display: flex; justify-content: space-between; font-size: 11px; color: #6b7280; margin-bottom: 5px; }
+.mc-progress-bar { height: 6px; background: #0f1117; border-radius: 3px; overflow: hidden; }
+.mc-progress-fill { height: 100%; border-radius: 3px; transition: width 0.6s ease; }
+.mc-reasons { font-size: 11px; }
+.mc-reasons-title { color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; font-size: 10px; }
+.mc-reason-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; border-bottom: 1px solid rgba(42,45,58,0.5); }
+.mc-reason-row:last-child { border-bottom: none; }
+.mc-reason-name { color: #9ca3af; flex: 1; margin-right: 8px; }
+.mc-reason-count { color: #f87171; font-weight: 600; flex-shrink: 0; }
+.mc-error { font-size: 12px; color: #6b7280; font-style: italic; padding: 8px 0; }
+.mc-mid { font-size: 11px; color: #4b5563; margin-top: 4px; }
+
 /* ======= DEEPER DIVE MODAL ======= */
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.82); z-index: 100; display: none; overflow-y: auto; padding: 12px; }
 .modal-overlay.open { display: flex; align-items: flex-start; justify-content: center; }
@@ -217,6 +248,7 @@ select.ctrl:focus { outline: none; border-color: #34d399; }
 <div class="tab-bar">
   <div class="tab active" data-tab="happy" onclick="switchTab('happy')">Happy Mondays</div>
   <div class="tab" data-tab="upscale" onclick="switchTab('upscale')">Upscale</div>
+  <div class="tab" data-tab="mc" onclick="switchTab('mc')">Merchant Center</div>
 </div>
 
 <div class="toolbar">
@@ -251,6 +283,10 @@ select.ctrl:focus { outline: none; border-color: #34d399; }
 </div>
 <div class="tab-content" id="tab-upscale">
   <div class="grid" id="upscale-tab"></div>
+</div>
+<div class="tab-content" id="tab-mc">
+  <div id="mc-loading" class="mc-loading-msg">Loading Merchant Center data...</div>
+  <div id="mc-grid" class="mc-grid" style="display:none"></div>
 </div>
 
 <!-- DEEPER DIVE MODAL -->
@@ -680,11 +716,119 @@ function manualRefresh() {
 /* ============================================================
    TABS
    ============================================================ */
+let mcLoaded = false;
+
 function switchTab(tab) {
   activeTab = tab;
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
   document.querySelectorAll('.tab-content').forEach(t => t.classList.toggle('active', t.id === 'tab-' + tab));
+  if (tab === 'mc' && !mcLoaded) {
+    loadMcTab();
+  }
   updateSummary();
+}
+
+function loadMcTab() {
+  const loadingEl = document.getElementById('mc-loading');
+  const gridEl = document.getElementById('mc-grid');
+  loadingEl.textContent = 'Fetching Merchant Center data...';
+  loadingEl.style.display = 'block';
+  gridEl.style.display = 'none';
+
+  fetch('/api/mc-status')
+    .then(r => r.json())
+    .then(data => {
+      if (data.error) {
+        loadingEl.textContent = 'Error: ' + data.error;
+        return;
+      }
+      mcLoaded = true;
+      const allAccounts = [
+        ...(data.happy || []).map(a => ({...a, mcc: 'Happy Mondays'})),
+        ...(data.upscale || []).map(a => ({...a, mcc: 'Upscale'})),
+      ];
+      if (!allAccounts.length) {
+        loadingEl.textContent = 'No Merchant Center accounts found.';
+        return;
+      }
+      gridEl.innerHTML = allAccounts.map(buildMcCard).join('');
+      loadingEl.style.display = 'none';
+      gridEl.style.display = 'grid';
+    })
+    .catch(err => {
+      loadingEl.textContent = 'Failed to load: ' + err.message;
+    });
+}
+
+function buildMcCard(acc) {
+  const name = acc.name;
+  const mid = acc.merchantId;
+  const mcc = acc.mcc;
+
+  if (acc.error) {
+    return '<div class="mc-card">' +
+      '<div class="mc-card-header"><h3>' + name + '</h3></div>' +
+      '<div class="mc-error">' + acc.error + '</div>' +
+      (mid ? '<div class="mc-mid">MC ID: ' + mid + '</div>' : '') +
+      '</div>';
+  }
+
+  const rate = acc.approvalRate || 0;
+  const total = acc.total || 0;
+  const approved = acc.approved || 0;
+  const disapproved = acc.disapproved || 0;
+  const pending = acc.pending || 0;
+
+  let badgeCls = 'mc-badge-green';
+  let badgeLabel = rate.toFixed(1) + '% approved';
+  if (rate < 80) badgeCls = 'mc-badge-red';
+  else if (rate < 95) badgeCls = 'mc-badge-yellow';
+
+  // Progress bar colour
+  let barColor = '#34d399';
+  if (rate < 80) barColor = '#f87171';
+  else if (rate < 95) barColor = '#fbbf24';
+
+  // Top disapproval reasons
+  const reasons = acc.topReasons || [];
+  const reasonsHtml = reasons.length
+    ? '<div class="mc-reasons">' +
+        '<div class="mc-reasons-title">Top Disapproval Reasons</div>' +
+        reasons.map(r =>
+          '<div class="mc-reason-row">' +
+            '<span class="mc-reason-name">' + r.reason + '</span>' +
+            '<span class="mc-reason-count">' + r.count + '</span>' +
+          '</div>'
+        ).join('') +
+      '</div>'
+    : (disapproved > 0 ? '<div class="mc-error">No specific reasons available.</div>' : '');
+
+  const mcUrl = mid ? 'https://merchants.google.com/mc/overview?a=' + mid : null;
+  const mcLink = mcUrl
+    ? '<a href="' + mcUrl + '" target="_blank" rel="noopener" class="mc-mid" style="color:#6b7280;text-decoration:none;" onmouseover="this.style.color=\'#34d399\'" onmouseout="this.style.color=\'#6b7280\'">MC: ' + mid + ' &#8599;</a>'
+    : '<div class="mc-mid">No MC linked</div>';
+
+  return '<div class="mc-card">' +
+    '<div class="mc-card-header">' +
+      '<div>' +
+        '<h3>' + name + '</h3>' +
+        '<div style="font-size:10px;color:#6b7280;margin-top:2px;">' + mcc + '</div>' +
+      '</div>' +
+      '<span class="mc-badge ' + badgeCls + '">' + badgeLabel + '</span>' +
+    '</div>' +
+    '<div class="mc-stats">' +
+      '<div class="mc-stat"><div class="mc-stat-val">' + total.toLocaleString() + '</div><div class="mc-stat-lbl">Total</div></div>' +
+      '<div class="mc-stat"><div class="mc-stat-val approved">' + approved.toLocaleString() + '</div><div class="mc-stat-lbl">Approved</div></div>' +
+      '<div class="mc-stat"><div class="mc-stat-val disapproved">' + disapproved.toLocaleString() + '</div><div class="mc-stat-lbl">Disapproved</div></div>' +
+      '<div class="mc-stat"><div class="mc-stat-val pending">' + pending.toLocaleString() + '</div><div class="mc-stat-lbl">Pending</div></div>' +
+    '</div>' +
+    '<div class="mc-progress-wrap">' +
+      '<div class="mc-progress-label"><span>Approval rate</span><span>' + rate.toFixed(1) + '%</span></div>' +
+      '<div class="mc-progress-bar"><div class="mc-progress-fill" style="width:' + rate + '%;background:' + barColor + '"></div></div>' +
+    '</div>' +
+    reasonsHtml +
+    mcLink +
+  '</div>';
 }
 
 /* ============================================================
