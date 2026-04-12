@@ -6,7 +6,7 @@ Returns a structured dict ready for the dashboard template.
 import os
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 
 import requests
 from google.auth.transport.requests import Request
@@ -49,6 +49,33 @@ ACCOUNT_NAMES = {
     "8045249572": "SilverAnt",
     "6812459700": "HGV Direct",
 }
+
+
+def compute_date_range(days=7, range_type=None, custom_start=None, custom_end=None):
+    """Returns (start_str, end_str) for the given range specification."""
+    today = date.today()
+    yesterday = today - timedelta(days=1)
+
+    if range_type == "mtd":
+        s = today.replace(day=1)
+        e = yesterday
+        if s > e:  # today is the 1st
+            s = (today - timedelta(days=1)).replace(day=1)
+    elif range_type == "ytd":
+        s = today.replace(month=1, day=1)
+        e = yesterday
+    elif range_type == "lastmonth":
+        first_this = today.replace(day=1)
+        e = first_this - timedelta(days=1)
+        s = e.replace(day=1)
+    elif range_type == "custom" and custom_start and custom_end:
+        s = datetime.strptime(custom_start, "%Y-%m-%d").date()
+        e = datetime.strptime(custom_end, "%Y-%m-%d").date()
+    else:
+        e = yesterday
+        s = e - timedelta(days=days - 1)
+
+    return s.strftime("%Y-%m-%d"), e.strftime("%Y-%m-%d")
 
 
 def get_token(mcc_key: str) -> str:
@@ -115,34 +142,33 @@ def list_child_accounts(token: str, login_customer_id: str) -> list:
     ]
 
 
-def fetch_campaigns(token: str, account_id: str, login_customer_id: str, days: int = 7) -> list:
-    end = datetime.now() - timedelta(days=1)
-    start = end - timedelta(days=days - 1)
-    start_str = start.strftime("%Y-%m-%d")
-    end_str = end.strftime("%Y-%m-%d")
-
+def fetch_campaigns(token: str, account_id: str, login_customer_id: str,
+                    start_str: str, end_str: str) -> list:
     rows = gaql(
         token, account_id, login_customer_id,
-        f"SELECT campaign.name, campaign.advertising_channel_type, "
+        f"SELECT campaign.name, campaign.status, campaign.advertising_channel_type, "
         f"campaign.primary_status, "
         f"metrics.clicks, metrics.impressions, metrics.cost_micros, "
         f"metrics.conversions_by_conversion_date, "
         f"metrics.conversions_value_by_conversion_date "
         f"FROM campaign "
-        f"WHERE campaign.status = 'ENABLED' "
+        f"WHERE campaign.status IN ('ENABLED', 'PAUSED') "
         f"AND segments.date BETWEEN '{start_str}' AND '{end_str}'"
     )
 
     camps = {}
     for r in rows:
         name = r["campaign"]["name"]
+        campaign_status = r["campaign"].get("status", "ENABLED")   # ENABLED or PAUSED
+        primary_status = r["campaign"].get("primaryStatus", "UNKNOWN")  # ELIGIBLE, LIMITED, etc.
         cost = int(r["metrics"].get("costMicros", 0)) / 1e6
         value = float(r["metrics"].get("conversionsValueByConversionDate", 0))
         if name not in camps:
             camps[name] = {
                 "name": name,
                 "type": r["campaign"].get("advertisingChannelType", ""),
-                "status": r["campaign"].get("primaryStatus", "UNKNOWN"),
+                "status": primary_status,
+                "campaignStatus": campaign_status,
                 "cost": 0, "revenue": 0, "clicks": 0, "conversions": 0,
             }
         camps[name]["cost"] += cost
@@ -161,10 +187,12 @@ def fetch_campaigns(token: str, account_id: str, login_customer_id: str, days: i
     return result
 
 
-def fetch_all(days: int = 7) -> dict:
-    """Fetch campaign data for all accounts across both MCCs. Returns dashboard-ready dict."""
-    logger.info("Starting full data fetch for %d days...", days)
-    data = {"happy": [], "upscale": [], "fetched_at": None}
+def fetch_all(days: int = 7, range_type=None, custom_start=None, custom_end=None) -> dict:
+    """Fetch campaign data for all accounts across both MCCs."""
+    start_str, end_str = compute_date_range(days, range_type, custom_start, custom_end)
+    logger.info("Starting full data fetch: %s to %s...", start_str, end_str)
+    data = {"happy": [], "upscale": [], "fetched_at": None,
+            "start_date": start_str, "end_date": end_str}
 
     for mcc_key in ["happy", "upscale"]:
         mcc = MCCS[mcc_key]
@@ -181,9 +209,11 @@ def fetch_all(days: int = 7) -> dict:
             acc_id = str(acc["id"])
             acc_name = ACCOUNT_NAMES.get(acc_id, acc.get("name", acc_id))
             try:
-                campaigns = fetch_campaigns(token, acc_id, mcc["login_customer_id"], days=days)
-                total_cost = sum(c["cost"] for c in campaigns)
-                total_revenue = sum(c["revenue"] for c in campaigns)
+                campaigns = fetch_campaigns(token, acc_id, mcc["login_customer_id"], start_str, end_str)
+                # Totals from active (ENABLED) campaigns only
+                active = [c for c in campaigns if c["campaignStatus"] == "ENABLED"]
+                total_cost = sum(c["cost"] for c in active)
+                total_revenue = sum(c["revenue"] for c in active)
 
                 data[mcc_key].append({
                     "name": acc_name,
@@ -193,66 +223,178 @@ def fetch_all(days: int = 7) -> dict:
                     "totalRoas": round(total_revenue / total_cost, 2) if total_cost > 0 else 0,
                     "campaigns": campaigns,
                 })
-                logger.info("  %s: $%.0f cost, $%.0f rev, %.2fx", acc_name, total_cost, total_revenue,
-                            total_revenue / total_cost if total_cost > 0 else 0)
+                logger.info("  %s: $%.0f cost, $%.0f rev", acc_name, total_cost, total_revenue)
             except Exception as e:
                 logger.error("  Failed to fetch %s (%s): %s", acc_name, acc_id, e)
 
-    # Sort by cost desc
     data["happy"].sort(key=lambda x: x["totalCost"], reverse=True)
     data["upscale"].sort(key=lambda x: x["totalCost"], reverse=True)
     data["fetched_at"] = datetime.now().strftime("%Y-%m-%d %H:%M UTC+7")
-
-    all_accs = data["happy"] + data["upscale"]
-    total_cost = sum(a["totalCost"] for a in all_accs)
-    total_rev = sum(a["totalRevenue"] for a in all_accs)
-    logger.info("Fetch complete. %d accounts, $%.0f cost, $%.0f rev",
-                len(all_accs), total_cost, total_rev)
-
     return data
 
 
-def fetch_campaigns_for_range(token: str, account_id: str, login_customer_id: str,
-                               days: int = 7, offset: int = 0) -> list:
-    """Fetch campaign-level data for a shifted date range (used for comparison)."""
-    end = datetime.now() - timedelta(days=1 + offset)
-    start = end - timedelta(days=days - 1)
-    start_str = start.strftime("%Y-%m-%d")
-    end_str = end.strftime("%Y-%m-%d")
+def fetch_deeper(account_name: str, mcc_key: str, start_str: str, end_str: str) -> dict:
+    """Fetch detailed metrics for a single account (Deeper Dive modal)."""
+    mcc = MCCS[mcc_key]
+    try:
+        token = get_token(mcc_key)
+    except Exception as e:
+        return {"error": f"Auth failed: {e}"}
 
-    rows = gaql(
-        token, account_id, login_customer_id,
-        f"SELECT campaign.name, "
-        f"metrics.cost_micros, metrics.conversions_value_by_conversion_date "
-        f"FROM campaign WHERE campaign.status = 'ENABLED' "
-        f"AND segments.date BETWEEN '{start_str}' AND '{end_str}'"
-    )
+    accounts = list_child_accounts(token, mcc["login_customer_id"])
+    target_id = None
+    for acc in accounts:
+        acc_id = str(acc["id"])
+        name = ACCOUNT_NAMES.get(acc_id, acc.get("name", acc_id))
+        if name == account_name:
+            target_id = acc_id
+            break
+
+    if not target_id:
+        return {"error": "Account not found"}
+
+    login_id = mcc["login_customer_id"]
+
+    # Daily breakdown
+    daily_rows = gaql(token, target_id, login_id, f"""
+        SELECT segments.date,
+        metrics.cost_micros,
+        metrics.conversions_value_by_conversion_date,
+        metrics.conversions_by_conversion_date,
+        metrics.clicks, metrics.impressions
+        FROM campaign
+        WHERE campaign.status IN ('ENABLED', 'PAUSED')
+        AND segments.date BETWEEN '{start_str}' AND '{end_str}'
+    """)
+
+    daily = {}
+    for r in daily_rows:
+        d = r["segments"]["date"]
+        if d not in daily:
+            daily[d] = {"date": d, "cost": 0, "revenue": 0, "conversions": 0, "clicks": 0, "impressions": 0}
+        daily[d]["cost"] += int(r["metrics"].get("costMicros", 0)) / 1e6
+        daily[d]["revenue"] += float(r["metrics"].get("conversionsValueByConversionDate", 0))
+        daily[d]["conversions"] += float(r["metrics"].get("conversionsByConversionDate", 0))
+        daily[d]["clicks"] += int(r["metrics"].get("clicks", 0))
+        daily[d]["impressions"] += int(r["metrics"].get("impressions", 0))
+
+    for d in daily.values():
+        d["cost"] = round(d["cost"], 2)
+        d["revenue"] = round(d["revenue"], 2)
+        d["conversions"] = round(d["conversions"], 1)
+        d["roas"] = round(d["revenue"] / d["cost"], 2) if d["cost"] > 0 else 0
+
+    daily_list = sorted(daily.values(), key=lambda x: x["date"])
+
+    # Campaign metrics with impression share
+    camp_rows = gaql(token, target_id, login_id, f"""
+        SELECT campaign.name, campaign.status, campaign.primary_status,
+        metrics.cost_micros,
+        metrics.conversions_value_by_conversion_date,
+        metrics.conversions_by_conversion_date,
+        metrics.clicks, metrics.impressions,
+        metrics.search_impression_share
+        FROM campaign
+        WHERE campaign.status IN ('ENABLED', 'PAUSED')
+        AND segments.date BETWEEN '{start_str}' AND '{end_str}'
+    """)
 
     camps = {}
-    for r in rows:
+    for r in camp_rows:
         name = r["campaign"]["name"]
-        cost = int(r["metrics"].get("costMicros", 0)) / 1e6
-        value = float(r["metrics"].get("conversionsValueByConversionDate", 0))
         if name not in camps:
-            camps[name] = {"name": name, "cost": 0, "revenue": 0}
-        camps[name]["cost"] += cost
-        camps[name]["revenue"] += value
+            camps[name] = {
+                "cost": 0, "revenue": 0, "conversions": 0,
+                "clicks": 0, "impressions": 0, "is_sum": 0.0, "is_count": 0
+            }
+        camps[name]["cost"] += int(r["metrics"].get("costMicros", 0)) / 1e6
+        camps[name]["revenue"] += float(r["metrics"].get("conversionsValueByConversionDate", 0))
+        camps[name]["conversions"] += float(r["metrics"].get("conversionsByConversionDate", 0))
+        camps[name]["clicks"] += int(r["metrics"].get("clicks", 0))
+        camps[name]["impressions"] += int(r["metrics"].get("impressions", 0))
+        is_val = r["metrics"].get("searchImpressionShare")
+        if is_val and str(is_val) not in ("", "--"):
+            try:
+                camps[name]["is_sum"] += float(is_val)
+                camps[name]["is_count"] += 1
+            except Exception:
+                pass
 
-    result = []
-    for c in camps.values():
-        c["cost"] = round(c["cost"], 2)
-        c["revenue"] = round(c["revenue"], 2)
-        c["roas"] = round(c["revenue"] / c["cost"], 2) if c["cost"] > 0 else 0
-        result.append(c)
-    return result
+    total_cost = sum(c["cost"] for c in camps.values())
+    total_rev = sum(c["revenue"] for c in camps.values())
+    total_conv = sum(c["conversions"] for c in camps.values())
+    total_clicks = sum(c["clicks"] for c in camps.values())
+    total_impr = sum(c["impressions"] for c in camps.values())
+    is_vals = [c["is_sum"] / c["is_count"] for c in camps.values() if c["is_count"] > 0]
+    avg_is = (sum(is_vals) / len(is_vals) * 100) if is_vals else 0
+
+    # Product level (Shopping only, graceful fallback)
+    prod_list = []
+    try:
+        prod_rows = gaql(token, target_id, login_id, f"""
+            SELECT segments.product_title,
+            metrics.cost_micros,
+            metrics.conversions_value_by_conversion_date,
+            metrics.conversions_by_conversion_date,
+            metrics.clicks, metrics.impressions
+            FROM shopping_performance_view
+            WHERE segments.date BETWEEN '{start_str}' AND '{end_str}'
+        """)
+        products = {}
+        for r in prod_rows:
+            title = r["segments"].get("productTitle") or "(no title)"
+            if title not in products:
+                products[title] = {"name": title, "cost": 0, "revenue": 0,
+                                   "conversions": 0, "clicks": 0, "impressions": 0}
+            products[title]["cost"] += int(r["metrics"].get("costMicros", 0)) / 1e6
+            products[title]["revenue"] += float(r["metrics"].get("conversionsValueByConversionDate", 0))
+            products[title]["conversions"] += float(r["metrics"].get("conversionsByConversionDate", 0))
+            products[title]["clicks"] += int(r["metrics"].get("clicks", 0))
+            products[title]["impressions"] += int(r["metrics"].get("impressions", 0))
+
+        prod_list = sorted(products.values(), key=lambda x: x["cost"], reverse=True)[:50]
+        for p in prod_list:
+            p["cost"] = round(p["cost"], 2)
+            p["revenue"] = round(p["revenue"], 2)
+            p["conversions"] = round(p["conversions"], 1)
+            p["roas"] = round(p["revenue"] / p["cost"], 2) if p["cost"] > 0 else 0
+            p["cpc"] = round(p["cost"] / p["clicks"], 2) if p["clicks"] > 0 else 0
+            p["ctr"] = round(p["clicks"] / p["impressions"] * 100, 2) if p["impressions"] > 0 else 0
+            p["aov"] = round(p["revenue"] / p["conversions"], 2) if p["conversions"] > 0 else 0
+    except Exception as e:
+        logger.warning("Product fetch failed for %s: %s", account_name, e)
+
+    return {
+        "accountName": account_name,
+        "startDate": start_str,
+        "endDate": end_str,
+        "totalCost": round(total_cost, 2),
+        "totalRevenue": round(total_rev, 2),
+        "totalRoas": round(total_rev / total_cost, 2) if total_cost > 0 else 0,
+        "totalConversions": round(total_conv, 1),
+        "totalClicks": total_clicks,
+        "totalImpressions": total_impr,
+        "cpc": round(total_cost / total_clicks, 2) if total_clicks > 0 else 0,
+        "ctr": round(total_clicks / total_impr * 100, 2) if total_impr > 0 else 0,
+        "convRate": round(total_conv / total_clicks * 100, 2) if total_clicks > 0 else 0,
+        "aov": round(total_rev / total_conv, 2) if total_conv > 0 else 0,
+        "impressionShare": round(avg_is, 1),
+        "daily": daily_list,
+        "products": prod_list,
+    }
 
 
-def fetch_all_for_range(days: int = 7, offset: int = 0) -> dict:
-    """Fetch account and campaign-level data for a shifted date range.
-    offset=7 means the period starts 7 extra days in the past.
-    Used for comparison (previous period / previous year).
-    """
-    logger.info("Starting comparison fetch: %dd with offset %d...", days, offset)
+def fetch_all_for_range(days: int = 7, offset: int = 0,
+                        custom_start: str = None, custom_end: str = None) -> dict:
+    """Fetch account and campaign-level data for comparison period."""
+    if custom_start and custom_end:
+        start_str, end_str = custom_start, custom_end
+    else:
+        e = date.today() - timedelta(days=1 + offset)
+        s = e - timedelta(days=days - 1)
+        start_str, end_str = s.strftime("%Y-%m-%d"), e.strftime("%Y-%m-%d")
+
+    logger.info("Comparison fetch: %s to %s...", start_str, end_str)
     data = {"happy": [], "upscale": []}
 
     for mcc_key in ["happy", "upscale"]:
@@ -269,21 +411,38 @@ def fetch_all_for_range(days: int = 7, offset: int = 0) -> dict:
             acc_id = str(acc["id"])
             acc_name = ACCOUNT_NAMES.get(acc_id, acc.get("name", acc_id))
             try:
-                campaigns = fetch_campaigns_for_range(
-                    token, acc_id, mcc["login_customer_id"],
-                    days=days, offset=offset
+                rows = gaql(token, acc_id, mcc["login_customer_id"],
+                    f"SELECT campaign.name, metrics.cost_micros, "
+                    f"metrics.conversions_value_by_conversion_date "
+                    f"FROM campaign WHERE campaign.status = 'ENABLED' "
+                    f"AND segments.date BETWEEN '{start_str}' AND '{end_str}'"
                 )
-                total_cost = sum(c["cost"] for c in campaigns)
-                total_revenue = sum(c["revenue"] for c in campaigns)
+                camps = {}
+                for r in rows:
+                    name = r["campaign"]["name"]
+                    cost = int(r["metrics"].get("costMicros", 0)) / 1e6
+                    value = float(r["metrics"].get("conversionsValueByConversionDate", 0))
+                    if name not in camps:
+                        camps[name] = {"name": name, "cost": 0, "revenue": 0}
+                    camps[name]["cost"] += cost
+                    camps[name]["revenue"] += value
 
+                camp_list = []
+                for c in camps.values():
+                    c["cost"] = round(c["cost"], 2)
+                    c["revenue"] = round(c["revenue"], 2)
+                    c["roas"] = round(c["revenue"] / c["cost"], 2) if c["cost"] > 0 else 0
+                    camp_list.append(c)
+
+                total_cost = sum(c["cost"] for c in camp_list)
+                total_revenue = sum(c["revenue"] for c in camp_list)
                 data[mcc_key].append({
                     "name": acc_name,
                     "totalCost": round(total_cost, 2),
                     "totalRevenue": round(total_revenue, 2),
                     "totalRoas": round(total_revenue / total_cost, 2) if total_cost > 0 else 0,
-                    "campaigns": campaigns,
+                    "campaigns": camp_list,
                 })
-                logger.info("  [cmp] %s: $%.0f cost, $%.0f rev", acc_name, total_cost, total_revenue)
             except Exception as e:
                 logger.error("  [cmp] Failed %s: %s", acc_name, e)
 
