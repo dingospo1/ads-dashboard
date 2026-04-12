@@ -484,7 +484,8 @@ function renderCard(account, mccKey) {
   const safeName = account.name.replace(/'/g,"\\x27");
   return '<div class="card" data-card-id="' + id + '">' +
     '<div class="card-header">' +
-      '<h2>' + account.name + ' <button class="deeper-btn" onclick="openDeeperDive(\'' + safeName + '\', \'' + mccKey + '\')">&#128269; Dive</button></h2>' +
+      '<h2>' + account.name + '</h2>' +
+      '<button class="deeper-btn" onclick="openDeeperDive(\'' + safeName + '\', \'' + mccKey + '\')">&#128269; Dive</button>' +
       '<div class="header-roas">' +
         '<div class="header-target">' +
           '<span>Target</span>' +
@@ -498,6 +499,7 @@ function renderCard(account, mccKey) {
     '<div class="account-summary">' +
       '<div class="account-stat">Cost<span>' + fmt(account.totalCost) + '</span>' + costDelta + '</div>' +
       '<div class="account-stat">Revenue<span>' + fmt(account.totalRevenue) + '</span>' + revDelta + '</div>' +
+      '<div class="account-stat">ROAS<span style="color:' + (rc==='green'?'#34d399':rc==='yellow'?'#fbbf24':'#f87171') + '">' + fmtRoas(account.totalRoas) + '</span>' + roasDelta + '</div>' +
     '</div>' +
     '<div class="col-header">' +
       '<span class="campaign-name">Campaign</span>' +
