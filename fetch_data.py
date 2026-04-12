@@ -394,7 +394,7 @@ def fetch_deeper(account_name: str, mcc_key: str, start_str: str, end_str: str) 
             products[title]["clicks"] += int(r["metrics"].get("clicks", 0))
             products[title]["impressions"] += int(r["metrics"].get("impressions", 0))
 
-        prod_list = sorted(products.values(), key=lambda x: x["cost"], reverse=True)[:50]
+        prod_list = sorted(products.values(), key=lambda x: x["cost"], reverse=True)[:100]
         for p in prod_list:
             p["cost"] = round(p["cost"], 2)
             p["revenue"] = round(p["revenue"], 2)

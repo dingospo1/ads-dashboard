@@ -693,6 +693,7 @@ let modal = {
   sortCol: 'cost', sortDir: 'desc',
   chartKPIs: ['revenue'],
   campShowAll: false,
+  prodSortCol: 'cost', prodSortDir: 'desc', prodShowAll: false,
   data: null, cmpData: null
 };
 
@@ -712,6 +713,7 @@ function openDeeperDive(accountName, mccKey) {
   modal.sortCol = 'cost'; modal.sortDir = 'desc';
   modal.chartKPIs = ['revenue'];
   modal.campShowAll = false;
+  modal.prodSortCol = 'cost'; modal.prodSortDir = 'desc'; modal.prodShowAll = false;
   modal.data = null; modal.cmpData = null;
 
   document.getElementById('modal-range').value = 'days-7';
@@ -793,6 +795,26 @@ function changeModalCampFilter(val) {
   modal.campFilter = val;
   modal.campShowAll = false;
   refreshCampSection();
+}
+
+function sortProdCol(field) {
+  if (modal.prodSortCol === field) {
+    modal.prodSortDir = modal.prodSortDir === 'desc' ? 'asc' : 'desc';
+  } else {
+    modal.prodSortCol = field;
+    modal.prodSortDir = 'desc';
+  }
+  refreshProdSection();
+}
+
+function showAllModalProds() {
+  modal.prodShowAll = true;
+  refreshProdSection();
+}
+
+function refreshProdSection() {
+  const el = document.getElementById('modal-prod-section');
+  if (el) el.innerHTML = buildProdHtml(modal.data);
 }
 
 function deeperUrl(days, rangeType, customStart, customEnd) {
@@ -1013,26 +1035,51 @@ function buildDeeperChart(d) {
   });
 }
 
+function buildProdHtml(d) {
+  const target = getTargetRoas(modal.account);
+  const MAX_PRODS = 20;
+  function thP(label, field) {
+    const isActive = modal.prodSortCol === field;
+    const arrow = isActive ? (modal.prodSortDir==='desc'?' &#9660;':' &#9650;') : ' <span style="opacity:0.3">&#8597;</span>';
+    return '<th class="th-sort" onclick="sortProdCol(\'' + field + '\')" style="color:' + (isActive?'#e1e4e8':'#6b7280') + '">' + label + arrow + '</th>';
+  }
+
+  if (!d || !d.products || d.products.length === 0) {
+    return '<div class="modal-section-title">Products</div>' +
+      '<p style="color:#4b5563;font-size:12px;padding:12px 0">No Shopping product data for this period. This section only populates for accounts running Shopping or PMax campaigns.</p>';
+  }
+
+  const sorted = [...d.products].sort((a,b) =>
+    modal.prodSortDir==='desc' ? b[modal.prodSortCol]-a[modal.prodSortCol] : a[modal.prodSortCol]-b[modal.prodSortCol]
+  );
+  const visible = modal.prodShowAll ? sorted : sorted.slice(0, MAX_PRODS);
+  const rows = visible.map(p => {
+    const roasCl = p.roas>=target?'#34d399':p.roas>=target*0.7?'#fbbf24':'#f87171';
+    return '<tr>' +
+      '<td style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+p.name+'</td>' +
+      '<td>'+fmtDec(p.cost)+'</td>' +
+      '<td>'+fmtDec(p.revenue)+'</td>' +
+      '<td style="color:'+roasCl+'">'+fmtRoas(p.roas)+'</td>' +
+      '<td>'+p.conversions.toFixed(1)+'</td>' +
+      '<td>'+fmtDec(p.cpc)+'</td>' +
+      '<td>'+fmtPct(p.ctr)+'</td>' +
+      '<td>'+(p.aov>0?fmt(p.aov):'—')+'</td>' +
+    '</tr>';
+  }).join('');
+  const moreBtn = (!modal.prodShowAll && sorted.length > MAX_PRODS)
+    ? '<button class="toggle-btn" onclick="showAllModalProds()" style="margin-top:8px">Show ' + (sorted.length - MAX_PRODS) + ' more products</button>' : '';
+  return '<div class="modal-section-title">Products <span style="font-weight:400;color:#4b5563;font-size:11px;text-transform:none;letter-spacing:0">(top ' + sorted.length + ' by spend)</span></div>' +
+    '<div class="data-table-wrap"><table class="data-table"><thead><tr>' +
+    '<th style="text-align:left">Product</th>' +
+    thP('Cost','cost') + thP('Revenue','revenue') + thP('ROAS','roas') +
+    thP('Conv.','conversions') + thP('CPC','cpc') + thP('CTR','ctr') + thP('AOV','aov') +
+    '</tr></thead><tbody>' + rows + '</tbody></table></div>' + moreBtn;
+}
+
 function renderDeeperDive() {
   const d = modal.data;
   if (!d) return;
   const cmp = modal.cmpData;
-  const target = getTargetRoas(modal.account);
-
-  // Products table
-  let prodHtml = '';
-  if (d.products && d.products.length > 0) {
-    const prodRows = d.products.map(p =>
-      '<tr><td>'+p.name+'</td><td>'+fmtDec(p.cost)+'</td><td>'+fmtDec(p.revenue)+'</td>' +
-      '<td style="color:'+(p.roas>=target?'#34d399':p.roas>=target*0.7?'#fbbf24':'#f87171')+'">'+fmtRoas(p.roas)+'</td>' +
-      '<td>'+p.conversions.toFixed(1)+'</td><td>'+fmtDec(p.cpc)+'</td>' +
-      '<td>'+fmtPct(p.ctr)+'</td><td>'+(p.aov>0?fmt(p.aov):'—')+'</td></tr>'
-    ).join('');
-    prodHtml = '<div class="modal-section-title">Products</div>' +
-      '<div class="data-table-wrap"><table class="data-table"><thead><tr>' +
-      '<th style="text-align:left">Product</th><th>Cost</th><th>Revenue</th><th>ROAS</th><th>Conv.</th><th>CPC</th><th>CTR</th><th>AOV</th>' +
-      '</tr></thead><tbody>'+prodRows+'</tbody></table></div>';
-  }
 
   document.getElementById('modal-content').innerHTML =
     '<div class="modal-date-label">' + d.startDate + ' &rarr; ' + d.endDate +
@@ -1040,7 +1087,7 @@ function renderDeeperDive() {
     '<div id="modal-kpi-grid" class="kpi-grid">' + buildKpiGridHtml(d, cmp) + '</div>' +
     '<div class="chart-wrap"><canvas id="deeper-chart"></canvas></div>' +
     '<div id="modal-camp-section">' + buildCampHtml(d, cmp) + '</div>' +
-    '<div id="modal-prod-section">' + prodHtml + '</div>';
+    '<div id="modal-prod-section">' + buildProdHtml(d) + '</div>';
 
   buildDeeperChart(d);
 }
