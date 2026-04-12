@@ -846,29 +846,33 @@ function loadMcTab() {
   loadingEl.style.display = 'block';
   gridEl.style.display = 'none';
 
+  // Use the already-loaded account lists as base — don't depend on API for account list
+  const baseAccounts = [
+    ...happyAccounts.map(a => ({ name: a.name, accountId: a.accountId, merchantId: a.merchantId || 0, mcc: 'Happy Mondays' })),
+    ...upscaleAccounts.map(a => ({ name: a.name, accountId: a.accountId, merchantId: a.merchantId || 0, mcc: 'Upscale' })),
+  ];
+
+  if (!baseAccounts.length) {
+    loadingEl.textContent = 'No accounts loaded yet — wait for the data refresh.';
+    return;
+  }
+
+  // Show accounts immediately with loading state, then overlay MC status
+  gridEl.innerHTML = baseAccounts.map(a => buildMcCard({...a, _loading: true})).join('');
+  loadingEl.style.display = 'none';
+  gridEl.style.display = 'grid';
+
   fetch('/api/mc-status')
     .then(r => r.json())
     .then(data => {
-      if (data.error) {
-        loadingEl.textContent = 'Error: ' + data.error;
-        return;
-      }
+      if (data.error) return; // leave cards as-is (no MC data)
       mcLoaded = true;
-      const allAccounts = [
-        ...(data.happy || []).map(a => ({...a, mcc: 'Happy Mondays'})),
-        ...(data.upscale || []).map(a => ({...a, mcc: 'Upscale'})),
-      ].filter(a => !isBlocked(a));
-      if (!allAccounts.length) {
-        loadingEl.textContent = 'No Merchant Center accounts found. Make sure your GMC accounts are linked to Google Ads.';
-        return;
-      }
-      gridEl.innerHTML = allAccounts.map(buildMcCard).join('');
-      loadingEl.style.display = 'none';
-      gridEl.style.display = 'grid';
+      const statusMap = {};
+      [...(data.happy || []), ...(data.upscale || [])].forEach(a => { statusMap[a.name] = a; });
+      const merged = baseAccounts.map(a => ({ ...a, ...(statusMap[a.name] || {}) }));
+      gridEl.innerHTML = merged.map(buildMcCard).join('');
     })
-    .catch(err => {
-      loadingEl.textContent = 'Failed to load: ' + err.message;
-    });
+    .catch(() => {}); // leave cards as-is on network error
 }
 
 function buildMcCard(acc) {
