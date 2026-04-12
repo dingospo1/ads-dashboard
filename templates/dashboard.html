@@ -143,18 +143,11 @@
 <div class="compare-loading" id="compare-loading" style="display:none">Loading comparison data...</div>
 
 <div class="tab-bar">
-  <div class="tab active" data-tab="all" onclick="switchTab('all')">All</div>
-  <div class="tab" data-tab="happy" onclick="switchTab('happy')">Happy Mondays</div>
+  <div class="tab active" data-tab="happy" onclick="switchTab('happy')">Happy Mondays</div>
   <div class="tab" data-tab="upscale" onclick="switchTab('upscale')">Upscale</div>
 </div>
 
-<div class="tab-content active" id="tab-all">
-  <div class="mcc-label">Happy Mondays MCC</div>
-  <div class="grid" id="happy-all"></div>
-  <div class="mcc-label">Upscale MCC</div>
-  <div class="grid" id="upscale-all"></div>
-</div>
-<div class="tab-content" id="tab-happy">
+<div class="tab-content active" id="tab-happy">
   <div class="grid" id="happy-tab"></div>
 </div>
 <div class="tab-content" id="tab-upscale">
@@ -168,7 +161,7 @@ const currentDays = {{ current_days }};
 let happyAccounts = JSON.parse(JSON.stringify(data.happy || []));
 let upscaleAccounts = JSON.parse(JSON.stringify(data.upscale || []));
 let compareData = null;
-let activeTab = 'all';
+let activeTab = 'happy';
 
 function fmt(n) { return '$' + n.toLocaleString('en-US', {maximumFractionDigits: 0}); }
 function fmtDec(n) { return '$' + n.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}); }
@@ -370,9 +363,8 @@ function switchTab(tab) {
 
 function updateSummary() {
   let accs;
-  if (activeTab === 'happy') accs = happyAccounts;
-  else if (activeTab === 'upscale') accs = upscaleAccounts;
-  else accs = happyAccounts.concat(upscaleAccounts);
+  if (activeTab === 'upscale') accs = upscaleAccounts;
+  else accs = happyAccounts;
 
   const tc = accs.reduce((s, a) => s + a.totalCost, 0);
   const tr = accs.reduce((s, a) => s + a.totalRevenue, 0);
@@ -387,9 +379,8 @@ function updateSummary() {
   // Update comparison deltas for active tab
   if (compareData) {
     let cmpAccs;
-    if (activeTab === 'happy') cmpAccs = compareData.happy || [];
-    else if (activeTab === 'upscale') cmpAccs = compareData.upscale || [];
-    else cmpAccs = (compareData.happy || []).concat(compareData.upscale || []);
+    if (activeTab === 'upscale') cmpAccs = compareData.upscale || [];
+    else cmpAccs = compareData.happy || [];
 
     const cmpCost = cmpAccs.reduce((s, a) => s + a.totalCost, 0);
     const cmpRev = cmpAccs.reduce((s, a) => s + a.totalRevenue, 0);
@@ -406,13 +397,8 @@ function updateSummary() {
 }
 
 function renderAll() {
-  const hHtml = happyAccounts.map(a => renderCard(a, 'happy')).join('');
-  const uHtml = upscaleAccounts.map(a => renderCard(a, 'upscale')).join('');
-
-  document.getElementById('happy-all').innerHTML = hHtml;
-  document.getElementById('upscale-all').innerHTML = uHtml;
-  document.getElementById('happy-tab').innerHTML = hHtml;
-  document.getElementById('upscale-tab').innerHTML = uHtml;
+  document.getElementById('happy-tab').innerHTML = happyAccounts.map(a => renderCard(a, 'happy')).join('');
+  document.getElementById('upscale-tab').innerHTML = upscaleAccounts.map(a => renderCard(a, 'upscale')).join('');
   updateSummary();
 }
 
