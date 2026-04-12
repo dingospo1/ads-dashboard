@@ -187,6 +187,7 @@ def fetch_all(days: int = 7) -> dict:
 
                 data[mcc_key].append({
                     "name": acc_name,
+                    "accountId": acc_id,
                     "totalCost": round(total_cost, 2),
                     "totalRevenue": round(total_revenue, 2),
                     "totalRoas": round(total_revenue / total_cost, 2) if total_cost > 0 else 0,

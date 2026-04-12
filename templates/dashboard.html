@@ -53,6 +53,8 @@
   .card:hover { border-color: #3a3d4a; }
   .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
   .card-header h2 { font-size: 16px; font-weight: 600; }
+  .account-link { font-size: 11px; font-weight: 400; color: #6b7280; text-decoration: none; margin-left: 8px; transition: color 0.15s; }
+  .account-link:hover { color: #34d399; }
   .badge { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 20px; }
   .badge-green { background: #064e3b; color: #34d399; }
   .badge-yellow { background: #713f12; color: #fbbf24; }
@@ -232,8 +234,12 @@ function renderCard(account, mccKey) {
   const toggleHtml = showToggle
     ? '<button class="toggle-btn" onclick="toggleRows(\'' + id + '\', this)">Show ' + (campaigns.length - maxShow) + ' more</button>' : '';
 
+  const adsUrl = account.accountId
+    ? 'https://ads.google.com/aw/overview?ocid=' + account.accountId.replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3')
+    : '#';
+
   return '<div class="card" data-card-id="' + id + '">' +
-    '<div class="card-header"><h2>' + account.name + '</h2>' +
+    '<div class="card-header"><h2>' + account.name + ' <a href="' + adsUrl + '" target="_blank" class="account-link">Go to account &#8599;</a></h2>' +
     '<span class="badge badge-' + rc + '">' + account.totalRoas.toFixed(2) + 'x ROAS' + (cmp ? ' <span style="font-weight:400;opacity:0.7">' + roasDelta.replace(/<[^>]+>/g,'') + '</span>' : '') + '</span></div>' +
     '<div class="account-summary">' +
       '<div class="account-stat">Cost<span>' + fmt(account.totalCost) + '</span>' + costDelta + '</div>' +
