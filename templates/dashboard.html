@@ -204,10 +204,10 @@ select.ctrl:focus { outline: none; border-color: #34d399; }
 <p class="subtitle">{{ start_date }} &rarr; {{ end_date }} &nbsp;&middot;&nbsp; By conversion time &nbsp;&middot;&nbsp; Auto-refreshes hourly</p>
 
 <div class="summary-bar">
-  <div class="stat-box"><div class="stat-value" style="color:#34d399" id="s-accounts">{{ num_accounts }}</div><div class="stat-label">Accounts</div></div>
+  <div class="stat-box"><div class="stat-value" id="s-accounts">{{ num_accounts }}</div><div class="stat-label">Accounts</div></div>
   <div class="stat-box"><div class="stat-value" id="s-cost">${{ "{:,.0f}".format(total_cost) }}</div><div class="stat-label">Cost</div><div class="stat-delta" id="sd-cost"></div></div>
-  <div class="stat-box"><div class="stat-value" style="color:#34d399" id="s-rev">${{ "{:,.0f}".format(total_revenue) }}</div><div class="stat-label">Revenue</div><div class="stat-delta" id="sd-rev"></div></div>
-  <div class="stat-box"><div class="stat-value" style="color:#34d399" id="s-roas">{{ (total_roas * 100)|int }}%</div><div class="stat-label">Blended ROAS</div><div class="stat-delta" id="sd-roas"></div></div>
+  <div class="stat-box"><div class="stat-value" id="s-rev">${{ "{:,.0f}".format(total_revenue) }}</div><div class="stat-label">Revenue</div><div class="stat-delta" id="sd-rev"></div></div>
+  <div class="stat-box"><div class="stat-value" id="s-roas">{{ (total_roas * 100)|int }}%</div><div class="stat-label">Blended ROAS</div><div class="stat-delta" id="sd-roas"></div></div>
 </div>
 
 <div class="tab-bar">
