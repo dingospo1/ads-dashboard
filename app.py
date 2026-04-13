@@ -350,6 +350,27 @@ def api_refresh():
     return jsonify({"status": "refresh started"})
 
 
+@app.route("/api/test-auth")
+def api_test_auth():
+    """Test Google Ads API auth and make a minimal API call to diagnose failures."""
+    from fetch_data import get_token, gaql, MCCS
+    results = {}
+    for mcc_key in ["happy", "upscale"]:
+        try:
+            token = get_token(mcc_key)
+            results[mcc_key] = {"token": "ok"}
+            # Try a minimal GAQL query
+            login_id = MCCS[mcc_key]["login_customer_id"]
+            rows = gaql(token, login_id, login_id,
+                        "SELECT customer.id FROM customer LIMIT 1",
+                        raise_on_error=True)
+            results[mcc_key]["api_call"] = "ok"
+            results[mcc_key]["rows"] = len(rows)
+        except Exception as e:
+            results[mcc_key] = {"error": str(e)}
+    return jsonify(results)
+
+
 @app.route("/health")
 def health():
     return jsonify({
