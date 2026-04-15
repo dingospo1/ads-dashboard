@@ -24,7 +24,20 @@ ANTHROPIC_MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-6")
 
 # Cache: { (account_id, mcc): {"generated_at": iso, "content": str, "error": str} }
 _opps_cache: dict = {}
+# Context cache: { (account_id, mcc): {data dict} } — reused across opportunities + chat
+_ctx_cache: dict = {}
 _opps_lock = threading.Lock()
+
+
+CHAT_SYSTEM = """You are a senior Google Ads strategist with full access to this account's data.
+
+Answer the user's questions using the account data below. Be specific — use the actual numbers from the data. Keep answers concise and actionable. British English spelling. No em dashes. No fluff.
+
+If a question cannot be answered from the data provided, say so clearly rather than guessing.
+
+ACCOUNT DATA:
+{context}
+"""
 
 
 DIAGNOSTIC_PROMPT = """You are a senior Google Ads strategist auditing this Google Ads account.
@@ -342,3 +355,45 @@ def regenerate_all(cached_data: dict) -> None:
             except Exception as e:
                 logger.error("Opportunities failed for %s: %s", acc_id, e)
     logger.info("Opportunities: regenerated for %d accounts", count)
+
+
+def get_or_fetch_context(account_id: str, mcc_key: str) -> dict:
+    """Return cached account context or fetch fresh. Used by both opportunities and chat."""
+    with _opps_lock:
+        ctx = _ctx_cache.get((account_id, mcc_key))
+    if ctx:
+        return ctx
+    ctx = _fetch_account_context(account_id, mcc_key)
+    with _opps_lock:
+        _ctx_cache[(account_id, mcc_key)] = ctx
+    return ctx
+
+
+def chat_with_account(account_id: str, mcc_key: str, account_name: str, messages: list) -> str:
+    """Multi-turn chat about a specific account. messages = [{"role":"user","content":"..."}, ...]"""
+    if not ANTHROPIC_API_KEY:
+        return "ANTHROPIC_API_KEY not set in Render environment."
+
+    ctx = get_or_fetch_context(account_id, mcc_key)
+    context_str = f"Account name: {account_name}\n\n" + json.dumps(ctx, indent=2, default=str)[:40000]
+    system = CHAT_SYSTEM.format(context=context_str)
+
+    resp = requests.post(
+        "https://api.anthropic.com/v1/messages",
+        headers={
+            "x-api-key": ANTHROPIC_API_KEY,
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json",
+        },
+        json={
+            "model": ANTHROPIC_MODEL,
+            "max_tokens": 1024,
+            "system": system,
+            "messages": messages,
+        },
+        timeout=60,
+    )
+    if not resp.ok:
+        logger.error("Anthropic chat error %s: %s", resp.status_code, resp.text[:300])
+        return f"API error {resp.status_code}: {resp.text[:200]}"
+    return resp.json()["content"][0]["text"]

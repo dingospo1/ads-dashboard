@@ -389,6 +389,24 @@ def api_opportunities():
     return jsonify(result)
 
 
+@app.route("/api/chat", methods=["POST"])
+def api_chat():
+    """Multi-turn chat about a specific account."""
+    body = request.json or {}
+    account_id  = body.get("account_id", "").strip()
+    mcc_key     = body.get("mcc", "").strip()
+    account_name = body.get("name", "")
+    messages    = body.get("messages", [])
+
+    if not account_id or mcc_key not in ("happy", "upscale"):
+        return jsonify({"error": "account_id and mcc required"}), 400
+    if not messages:
+        return jsonify({"error": "messages required"}), 400
+
+    response = opps_mod.chat_with_account(account_id, mcc_key, account_name, messages)
+    return jsonify({"response": response})
+
+
 @app.route("/api/opportunities/refresh-all", methods=["POST"])
 def api_opps_refresh_all():
     """Trigger a full regenerate of opportunities for all accounts (async)."""

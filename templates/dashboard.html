@@ -146,6 +146,30 @@ select.ctrl:focus { outline: none; border-color: #34d399; }
 .opps-dedup { flex-shrink: 0; width: 18px; height: 18px; border-radius: 50%; background: transparent; border: 1.5px solid #374151; color: #6b7280; font-size: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; margin-top: 1px; transition: all 0.15s; }
 .opps-dedup:hover { border-color: #f87171; color: #f87171; }
 
+/* Ask AI button */
+.ask-ai-btn { background: transparent; border: 1px solid #2a2d3a; color: #9ca3af; font-size: 11px; padding: 3px 10px; border-radius: 4px; cursor: pointer; transition: all 0.15s; white-space: nowrap; flex-shrink: 0; }
+.ask-ai-btn:hover { color: #a78bfa; border-color: #a78bfa; }
+
+/* Chat modal */
+.chat-modal { max-width: 600px; display: flex; flex-direction: column; height: 80vh; max-height: 80vh; }
+.chat-messages { flex: 1; overflow-y: auto; padding: 8px 0; display: flex; flex-direction: column; gap: 10px; }
+.chat-msg { display: flex; flex-direction: column; max-width: 85%; }
+.chat-msg.user { align-self: flex-end; align-items: flex-end; }
+.chat-msg.ai { align-self: flex-start; align-items: flex-start; }
+.chat-bubble { padding: 10px 14px; border-radius: 14px; font-size: 13px; line-height: 1.55; white-space: pre-wrap; }
+.chat-msg.user .chat-bubble { background: #2563eb; color: #fff; border-bottom-right-radius: 4px; }
+.chat-msg.ai .chat-bubble { background: #1a1d27; color: #e1e4e8; border: 1px solid #2a2d3a; border-bottom-left-radius: 4px; }
+.chat-msg.ai.thinking .chat-bubble { color: #6b7280; font-style: italic; }
+.chat-input-row { display: flex; gap: 8px; margin-top: 12px; border-top: 1px solid #2a2d3a; padding-top: 12px; }
+.chat-input { flex: 1; background: #0f1117; border: 1px solid #2a2d3a; color: #e1e4e8; font-size: 13px; padding: 10px 12px; border-radius: 8px; outline: none; resize: none; font-family: inherit; }
+.chat-input:focus { border-color: #4b5563; }
+.chat-send-btn { background: #2563eb; border: none; color: white; font-size: 13px; font-weight: 600; padding: 10px 16px; border-radius: 8px; cursor: pointer; white-space: nowrap; align-self: flex-end; transition: opacity 0.15s; }
+.chat-send-btn:hover { opacity: 0.88; }
+.chat-send-btn:disabled { opacity: 0.4; cursor: wait; }
+.chat-clear-btn { background: transparent; border: 1px solid #2a2d3a; color: #6b7280; font-size: 11px; padding: 4px 10px; border-radius: 4px; cursor: pointer; }
+.chat-clear-btn:hover { color: #f87171; border-color: #f87171; }
+.chat-opps-divider { border: none; border-top: 1px solid #2a2d3a; margin: 16px 0 8px; }
+
 /* Compare loading */
 .compare-loading { font-size: 12px; color: #fbbf24; margin-bottom: 12px; }
 
@@ -293,6 +317,10 @@ select.ctrl:focus { outline: none; border-color: #34d399; }
   /* Opportunities modal — full screen like Deeper Dive */
   #opps-overlay { padding: 0; align-items: flex-start; }
   #opps-modal { margin: 0; padding: 14px 14px 24px; border-radius: 0; min-height: 100vh; width: 100vw; max-width: 100vw; border: none; }
+  /* Chat modal — full screen on mobile */
+  #chat-overlay { padding: 0; align-items: flex-start; }
+  .chat-modal { margin: 0; padding: 14px 14px 24px; border-radius: 0; height: 100vh; max-height: 100vh; width: 100vw; max-width: 100vw; border: none; }
+  .ask-ai-btn { font-size: 11px; padding: 3px 8px; }
   .opps-section-title { font-size: 10px; }
   .opps-text { font-size: 12px; }
   .opps-item { padding: 8px; gap: 8px; }
@@ -460,6 +488,22 @@ select.ctrl:focus { outline: none; border-color: #34d399; }
   <div id="mc-grid" class="mc-grid" style="display:none"></div>
 </div>
 
+<!-- ASK AI CHAT MODAL -->
+<div class="modal-overlay" id="chat-overlay" onclick="closeChatOutside(event)">
+  <div class="modal chat-modal" id="chat-modal">
+    <button class="modal-close" onclick="closeChat()">&times;</button>
+    <div class="modal-header" style="margin-bottom:12px;">
+      <div class="modal-title" id="chat-title">&#128172; Ask AI</div>
+      <button class="chat-clear-btn" onclick="clearChat()">Clear</button>
+    </div>
+    <div class="chat-messages" id="chat-messages"></div>
+    <div class="chat-input-row">
+      <textarea class="chat-input" id="chat-input" rows="2" placeholder="Ask anything about this account..." onkeydown="chatKeyDown(event)"></textarea>
+      <button class="chat-send-btn" id="chat-send" onclick="sendChat()">Send</button>
+    </div>
+  </div>
+</div>
+
 <!-- OPPORTUNITIES MODAL -->
 <div class="modal-overlay" id="opps-overlay" onclick="closeOppsOutside(event)">
   <div class="modal" id="opps-modal" style="max-width:760px;">
@@ -472,6 +516,13 @@ select.ctrl:focus { outline: none; border-color: #34d399; }
     </div>
     <div id="opps-meta" class="opps-meta"></div>
     <div id="opps-body"><div class="opps-loading">Loading analysis...</div></div>
+    <hr class="chat-opps-divider">
+    <div style="font-size:11px;color:#6b7280;margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">&#128172; Ask about this account</div>
+    <div class="chat-messages" id="opps-chat-messages" style="max-height:220px;min-height:40px;"></div>
+    <div class="chat-input-row">
+      <textarea class="chat-input" id="opps-chat-input" rows="2" placeholder="Ask anything..." onkeydown="oppsChatKeyDown(event)"></textarea>
+      <button class="chat-send-btn" id="opps-chat-send" onclick="sendOppsChat()">Send</button>
+    </div>
   </div>
 </div>
 
@@ -746,6 +797,7 @@ function renderCard(account, mccKey) {
       '<div class="card-header-left">' +
         '<h2>' + account.name + '</h2>' +
         '<button class="deeper-btn" onclick="openDeeperDive(\'' + safeName + '\', \'' + mccKey + '\', \'' + (account.accountId||'') + '\')">&#128269; Deeper Dive</button>' +
+        '<button class="ask-ai-btn" onclick="openChat(\'' + safeName + '\', \'' + mccKey + '\', \'' + (account.accountId||'') + '\')">&#128172; Ask AI</button>' +
       '</div>' +
       '<div class="header-right-col">' +
         '<div class="header-roas">' +
@@ -1837,6 +1889,118 @@ document.addEventListener('click', function() {
     refreshKpiCards();
   }
 });
+
+/* ============================================================
+   ASK AI CHAT
+   ============================================================ */
+let chatState = { accountName: '', mccKey: '', accountId: '' };
+let chatHistory = []; // [{role:'user'|'assistant', content:'...'}]
+let oppsChatHistory = [];
+
+function openChat(accountName, mccKey, accountId) {
+  chatState = { accountName, mccKey, accountId };
+  chatHistory = [];
+  document.getElementById('chat-title').innerHTML = '&#128172; Ask AI &mdash; ' + accountName;
+  document.getElementById('chat-messages').innerHTML = '';
+  document.getElementById('chat-input').value = '';
+  document.getElementById('chat-overlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  document.getElementById('chat-input').focus();
+}
+
+function closeChat() {
+  document.getElementById('chat-overlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+function closeChatOutside(e) {
+  if (e.target && e.target.id === 'chat-overlay') closeChat();
+}
+
+function clearChat() {
+  chatHistory = [];
+  document.getElementById('chat-messages').innerHTML = '';
+}
+
+function chatKeyDown(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); }
+}
+
+function oppsChatKeyDown(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendOppsChat(); }
+}
+
+function appendChatMsg(container, role, text) {
+  const el = document.createElement('div');
+  el.className = 'chat-msg ' + role;
+  el.innerHTML = '<div class="chat-bubble">' + text.replace(/</g,'&lt;') + '</div>';
+  container.appendChild(el);
+  container.scrollTop = container.scrollHeight;
+  return el;
+}
+
+async function _doChat(inputEl, sendBtn, messagesEl, historyArr, accountName, mccKey, accountId) {
+  const text = inputEl.value.trim();
+  if (!text || sendBtn.disabled) return;
+  inputEl.value = '';
+  sendBtn.disabled = true;
+
+  historyArr.push({ role: 'user', content: text });
+  appendChatMsg(messagesEl, 'user', text);
+  const thinkingEl = appendChatMsg(messagesEl, 'ai thinking', 'Thinking...');
+
+  try {
+    const resp = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        account_id: accountId,
+        mcc: mccKey,
+        name: accountName,
+        messages: historyArr,
+      }),
+    });
+    const data = await resp.json();
+    const answer = data.response || data.error || 'No response.';
+    thinkingEl.remove();
+    historyArr.push({ role: 'assistant', content: answer });
+    appendChatMsg(messagesEl, 'ai', answer);
+  } catch(err) {
+    thinkingEl.remove();
+    appendChatMsg(messagesEl, 'ai', 'Error: ' + err);
+  }
+  sendBtn.disabled = false;
+  inputEl.focus();
+}
+
+function sendChat() {
+  _doChat(
+    document.getElementById('chat-input'),
+    document.getElementById('chat-send'),
+    document.getElementById('chat-messages'),
+    chatHistory,
+    chatState.accountName, chatState.mccKey, chatState.accountId
+  );
+}
+
+function sendOppsChat() {
+  _doChat(
+    document.getElementById('opps-chat-input'),
+    document.getElementById('opps-chat-send'),
+    document.getElementById('opps-chat-messages'),
+    oppsChatHistory,
+    oppsState.accountName, oppsState.mccKey, oppsState.accountId
+  );
+}
+
+// Reset opps chat history when a new account's Opportunities modal opens
+const _origOpenOpps = openOpportunities;
+openOpportunities = function(accountName, mccKey, accountId) {
+  oppsChatHistory = [];
+  document.getElementById('opps-chat-messages').innerHTML = '';
+  document.getElementById('opps-chat-input').value = '';
+  _origOpenOpps(accountName, mccKey, accountId);
+};
 
 setTimeout(() => window.location.reload(), 3600000);
 renderAll();
