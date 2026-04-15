@@ -29,7 +29,7 @@ _opps_lock = threading.Lock()
 
 DIAGNOSTIC_PROMPT = """You are a senior Google Ads strategist auditing this Google Ads account.
 
-Silently evaluate the account against every diagnostic question listed below. Do NOT answer every question — only surface findings where you spot something actionable: a problem, a risk, a wasted spend issue, or a scaling opportunity.
+CRITICAL RULE: Only report findings where the data clearly supports it. Do NOT invent issues, speculate, or pad the output. If the account looks healthy on a dimension, say nothing. An empty output is better than a fabricated one. Every finding must be grounded in a specific number from the data provided.
 
 DIAGNOSTIC QUESTIONS TO EVALUATE:
 
@@ -97,11 +97,13 @@ Schema:
 }}
 
 Rules:
-- Only include a category key if there are findings for it. Omit empty categories entirely.
-- Each finding is ONE short sentence: state what's wrong/interesting + the key metric + the next step. Max 25 words per finding.
-- No bullet symbols, no markdown, no bold. Plain text only inside each string.
-- Use British English spelling (optimise, analyse, etc). Never use em dashes.
-- Prioritise by impact. Max 4 findings per category.
+- Only include a category if you have a data-backed finding. Omit empty categories entirely.
+- If the account data is insufficient to evaluate something, skip it — do not guess.
+- Each finding: ONE sentence. Specific metric included. Concrete next step. Max 25 words.
+- No bullet symbols, no markdown, no bold. Plain text only.
+- British English spelling. No em dashes.
+- Max 4 findings per category. Quality over quantity — 3 real findings beats 8 vague ones.
+- Do NOT include findings like "consider adding sitelinks" or "ad strength could be improved" unless the data explicitly shows a problem. Generic best-practice advice without data to back it is not a finding.
 
 ACCOUNT DATA:
 
