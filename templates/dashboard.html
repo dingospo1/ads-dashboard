@@ -1941,7 +1941,15 @@ function getOppsBadge(accountId) {
 }
 
 function setOppsCount(accountId, findings) {
-  const total = Object.values(findings).reduce((s, arr) => s + (Array.isArray(arr) ? arr.length : 0), 0);
+  const dismissed = getDismissed(accountId);
+  let total = 0;
+  OPPS_CATEGORIES.forEach(cat => {
+    const items = findings[cat.key] || [];
+    items.forEach((_, idx) => {
+      const state = dismissed[cat.key + '_' + idx] || '';
+      if (state !== 'done' && state !== 'low') total++;
+    });
+  });
   localStorage.setItem('opps_count_' + accountId, total);
   const btn = document.getElementById('opps-btn-' + accountId);
   if (btn) btn.innerHTML = '&#10024; Opportunities' + (total > 0 ? '<span class="opps-count">' + total + '</span>' : '');
@@ -1991,10 +1999,10 @@ function renderOppsFindings(findings, accountId) {
       const itemKey = cat.key + '_' + idx;
       texts[itemKey] = text; // persist text for future prompts
       const state = dismissed[itemKey] || '';
-      const isDismissed = state === 'done';
-      const isDeprio = state === 'low';
-      html += '<div class="opps-item' + (isDismissed ? ' dismissed' : isDeprio ? ' deprioritised' : '') + '" id="opps-item-' + itemKey + '">';
-      html += '<div class="opps-check' + (isDismissed ? ' checked' : '') + '" onclick="oppsToggleDone(\'' + accountId + '\',\'' + itemKey + '\')" title="Mark as done"></div>';
+      // Don't render items the user has already actioned or dismissed
+      if (state === 'done' || state === 'low') return;
+      html += '<div class="opps-item" id="opps-item-' + itemKey + '">';
+      html += '<div class="opps-check" onclick="oppsToggleDone(\'' + accountId + '\',\'' + itemKey + '\')" title="Mark as done"></div>';
       html += '<div class="opps-text">' + text.replace(/</g,'&lt;') + '</div>';
       html += '<div class="opps-dedup" onclick="oppsToggleLow(\'' + accountId + '\',\'' + itemKey + '\')" title="Not relevant — skip next time">✕</div>';
       html += '</div>';
@@ -2005,21 +2013,23 @@ function renderOppsFindings(findings, accountId) {
   return html || '<div class="opps-loading">No findings for this account.</div>';
 }
 
+function oppsDecrementCount(accountId) {
+  const n = Math.max(0, parseInt(localStorage.getItem('opps_count_' + accountId) || '0') - 1);
+  localStorage.setItem('opps_count_' + accountId, n);
+  const btn = document.getElementById('opps-btn-' + accountId);
+  if (btn) btn.innerHTML = '&#10024; Opportunities' + (n > 0 ? '<span class="opps-count">' + n + '</span>' : '');
+}
+
 function oppsToggleDone(accountId, itemKey) {
   const dismissed = getDismissed(accountId);
-  dismissed[itemKey] = dismissed[itemKey] === 'done' ? '' : 'done';
+  dismissed[itemKey] = 'done';
   saveDismissed(accountId, dismissed);
   const el = document.getElementById('opps-item-' + itemKey);
-  const check = el.querySelector('.opps-check');
-  if (dismissed[itemKey] === 'done') {
+  if (el) {
     el.classList.add('dismissed');
-    check.classList.add('checked');
-    setTimeout(() => { el.style.display='none'; }, 220);
-  } else {
-    el.style.display='';
-    el.classList.remove('dismissed');
-    check.classList.remove('checked');
+    setTimeout(() => { el.style.display = 'none'; }, 220);
   }
+  oppsDecrementCount(accountId);
 }
 
 function oppsToggleLow(accountId, itemKey) {
@@ -2031,14 +2041,10 @@ function oppsToggleLow(accountId, itemKey) {
     el.style.transition = 'opacity 0.2s, max-height 0.25s, padding 0.25s, margin 0.25s';
     el.style.opacity = '0';
     el.style.maxHeight = el.offsetHeight + 'px';
-    setTimeout(() => {
-      el.style.maxHeight = '0';
-      el.style.padding = '0';
-      el.style.margin = '0';
-      el.style.overflow = 'hidden';
-    }, 200);
+    setTimeout(() => { el.style.maxHeight = '0'; el.style.padding = '0'; el.style.margin = '0'; el.style.overflow = 'hidden'; }, 200);
     setTimeout(() => el.remove(), 450);
   }
+  oppsDecrementCount(accountId);
 }
 
 function loadOpportunities(force) {
