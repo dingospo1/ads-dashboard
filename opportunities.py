@@ -284,15 +284,21 @@ def _call_anthropic(prompt: str) -> str:
     return text
 
 
-def generate_opportunities(account_id: str, mcc_key: str, account_name: str = "") -> dict:
+def generate_opportunities(account_id: str, mcc_key: str, account_name: str = "", skip_list: list = None) -> dict:
     """Generate opportunities for one account. Returns {generated_at, content, error}."""
     try:
         ctx = _fetch_account_context(account_id, mcc_key)
         prompt = DIAGNOSTIC_PROMPT.format(
             data=json.dumps(ctx, indent=2, default=str)[:50000]
         )
+        prefix = ""
         if account_name:
-            prompt = f"Account name: {account_name}\n\n{prompt}"
+            prefix += f"Account name: {account_name}\n"
+        if skip_list:
+            skip_formatted = "\n".join(f"- {s}" for s in skip_list[:20])
+            prefix += f"\nThe user has previously marked the following findings as NOT RELEVANT for this account. Do not surface similar findings again:\n{skip_formatted}\n"
+        if prefix:
+            prompt = prefix + "\n" + prompt
         content = _call_anthropic(prompt)
         result = {
             "generated_at": datetime.utcnow().isoformat() + "Z",

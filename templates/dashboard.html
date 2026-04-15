@@ -1842,6 +1842,7 @@ const OPPS_CATEGORIES = [
 ];
 
 function oppsStorageKey(accountId) { return 'opps_dismissed_' + accountId; }
+function oppsTextKey(accountId) { return 'opps_texts_' + accountId; }
 
 function getDismissed(accountId) {
   try { return JSON.parse(localStorage.getItem(oppsStorageKey(accountId)) || '{}'); }
@@ -1852,8 +1853,28 @@ function saveDismissed(accountId, state) {
   localStorage.setItem(oppsStorageKey(accountId), JSON.stringify(state));
 }
 
+function getTexts(accountId) {
+  try { return JSON.parse(localStorage.getItem(oppsTextKey(accountId)) || '{}'); }
+  catch(e) { return {}; }
+}
+
+function saveTexts(accountId, texts) {
+  localStorage.setItem(oppsTextKey(accountId), JSON.stringify(texts));
+}
+
+function getLowPriorityTexts(accountId) {
+  const dismissed = getDismissed(accountId);
+  const texts = getTexts(accountId);
+  return Object.entries(dismissed)
+    .filter(([k, v]) => v === 'low')
+    .map(([k]) => texts[k])
+    .filter(Boolean);
+}
+
 function renderOppsFindings(findings, accountId) {
   const dismissed = getDismissed(accountId);
+  // Store all finding texts so we can reference them later
+  const texts = getTexts(accountId);
   let html = '';
   OPPS_CATEGORIES.forEach(cat => {
     const items = findings[cat.key];
@@ -1862,17 +1883,19 @@ function renderOppsFindings(findings, accountId) {
     html += '<div class="opps-section-title" style="color:' + cat.color + '">' + cat.label + '</div>';
     items.forEach((text, idx) => {
       const itemKey = cat.key + '_' + idx;
+      texts[itemKey] = text; // persist text for future prompts
       const state = dismissed[itemKey] || '';
       const isDismissed = state === 'done';
       const isDeprio = state === 'low';
       html += '<div class="opps-item' + (isDismissed ? ' dismissed' : isDeprio ? ' deprioritised' : '') + '" id="opps-item-' + itemKey + '">';
       html += '<div class="opps-check' + (isDismissed ? ' checked' : '') + '" onclick="oppsToggleDone(\'' + accountId + '\',\'' + itemKey + '\')" title="Mark as done"></div>';
       html += '<div class="opps-text">' + text.replace(/</g,'&lt;') + '</div>';
-      html += '<div class="opps-dedup" onclick="oppsToggleLow(\'' + accountId + '\',\'' + itemKey + '\')" title="Not relevant">✕</div>';
+      html += '<div class="opps-dedup" onclick="oppsToggleLow(\'' + accountId + '\',\'' + itemKey + '\')" title="Not relevant — skip next time">✕</div>';
       html += '</div>';
     });
     html += '</div>';
   });
+  saveTexts(accountId, texts);
   return html || '<div class="opps-loading">No findings for this account.</div>';
 }
 
@@ -1908,10 +1931,12 @@ function loadOpportunities(force) {
     document.getElementById('opps-body').innerHTML = '<div class="opps-loading" style="color:#f87171">Missing account ID.</div>';
     return;
   }
+  const lowPriority = getLowPriorityTexts(accountId);
   const url = '/api/opportunities?account_id=' + encodeURIComponent(accountId)
             + '&mcc=' + encodeURIComponent(mccKey)
             + '&name=' + encodeURIComponent(accountName)
-            + (force ? '&force=1' : '');
+            + (force ? '&force=1' : '')
+            + (lowPriority.length ? '&skip=' + encodeURIComponent(JSON.stringify(lowPriority)) : '');
   fetch(url)
     .then(r => r.json())
     .then(data => {

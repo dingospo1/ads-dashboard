@@ -370,13 +370,22 @@ def api_opportunities():
     if not account_id or mcc_key not in ("happy", "upscale"):
         return jsonify({"error": "account_id and mcc (happy|upscale) required"}), 400
 
+    # Parse skip list (findings the user has marked as not relevant)
+    skip_raw = request.args.get("skip", "")
+    skip_list = []
+    if skip_raw:
+        try:
+            skip_list = json.loads(skip_raw)
+        except Exception:
+            pass
+
     if not force:
         cached = opps_mod.get_cached(account_id, mcc_key)
         if cached:
             return jsonify(cached)
 
     # No cache (or forced) — generate synchronously
-    result = opps_mod.generate_opportunities(account_id, mcc_key, account_name)
+    result = opps_mod.generate_opportunities(account_id, mcc_key, account_name, skip_list=skip_list)
     return jsonify(result)
 
 
