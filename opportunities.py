@@ -20,7 +20,7 @@ from fetch_data import (
 logger = logging.getLogger(__name__)
 
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
-ANTHROPIC_MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-5")
+ANTHROPIC_MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-6")
 
 # Cache: { (account_id, mcc): {"generated_at": iso, "content": str, "error": str} }
 _opps_cache: dict = {}
@@ -253,6 +253,7 @@ def _call_anthropic(prompt: str) -> str:
     """Call Claude via Anthropic API."""
     if not ANTHROPIC_API_KEY:
         return "ANTHROPIC_API_KEY not set in Render environment."
+    logger.info("Calling Anthropic API — model=%s key_prefix=%s", ANTHROPIC_MODEL, ANTHROPIC_API_KEY[:20])
 
     resp = requests.post(
         "https://api.anthropic.com/v1/messages",
