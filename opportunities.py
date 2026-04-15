@@ -85,20 +85,23 @@ STRATEGIC & STRUCTURAL
 
 OUTPUT FORMAT:
 
-Return a concise bullet-point summary using these categories. Only include a category if there is something to report. Skip empty categories entirely.
+Return ONLY a valid JSON object — no markdown, no explanation, no text outside the JSON.
 
-🔴 Issues (things that need fixing now)
-🟡 Risks (things trending in the wrong direction or worth watching)
-💰 Wasted Spend (specific areas where budget is being burned inefficiently)
-🟢 Opportunities (areas with room to scale or improve)
-📝 Notable Changes (recent changes that may be driving current performance)
+Schema:
+{{
+  "issues": ["finding 1", "finding 2"],
+  "risks": ["finding 1"],
+  "wasted_spend": ["finding 1"],
+  "opportunities": ["finding 1"],
+  "notable_changes": ["finding 1"]
+}}
 
-For each bullet point:
-- State the finding clearly in one sentence
-- Include the relevant metric or data point
-- Suggest a specific next step where possible
-
-Keep the entire output under 500 words. Be direct, skip fluff, and prioritise by impact. Use British English spelling (optimise, analyse, etc). Never use em dashes.
+Rules:
+- Only include a category key if there are findings for it. Omit empty categories entirely.
+- Each finding is ONE short sentence: state what's wrong/interesting + the key metric + the next step. Max 25 words per finding.
+- No bullet symbols, no markdown, no bold. Plain text only inside each string.
+- Use British English spelling (optimise, analyse, etc). Never use em dashes.
+- Prioritise by impact. Max 4 findings per category.
 
 ACCOUNT DATA:
 
@@ -272,7 +275,13 @@ def _call_anthropic(prompt: str) -> str:
     if not resp.ok:
         logger.error("Anthropic error %s: %s", resp.status_code, resp.text[:500])
         return f"API error {resp.status_code}: {resp.text[:200]}"
-    return resp.json()["content"][0]["text"]
+    text = resp.json()["content"][0]["text"].strip()
+    # Strip markdown code fences if Claude wrapped JSON in them
+    if text.startswith("```"):
+        text = text.split("```")[1]
+        if text.startswith("json"):
+            text = text[4:]
+    return text
 
 
 def generate_opportunities(account_id: str, mcc_key: str, account_name: str = "") -> dict:
