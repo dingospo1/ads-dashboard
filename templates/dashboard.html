@@ -273,11 +273,29 @@ select.ctrl:focus { outline: none; border-color: #34d399; }
   .tab-bar::-webkit-scrollbar { display: none; }
   .tab { padding: 8px 14px; font-size: 12px; flex-shrink: 0; }
 
-  /* Toolbar */
-  .toolbar { gap: 6px; }
+  /* Toolbar — split into 2 rows on mobile */
+  .toolbar { flex-wrap: wrap; gap: 6px; padding: 8px 10px; }
   .toolbar select.ctrl { font-size: 12px; padding: 7px 22px 7px 8px; min-height: 36px; }
   .toolbar-sep { display: none; }
   .sort-label { font-size: 11px; }
+  /* Opportunities row wraps onto its own line, full width */
+  .toolbar-right { margin-left: 0; width: 100%; border-top: 1px solid #1f2435; padding-top: 8px; gap: 6px; flex-wrap: wrap; }
+  .opps-bar-label { font-size: 11px; }
+  .opps-bar-status { display: none; } /* hide "Auto-refresh off" text on mobile — saves space */
+  .opps-refresh-all-btn { padding: 5px 12px; font-size: 11px; margin-left: auto; }
+
+  /* Card header — stack ROAS col below title on very narrow screens */
+  .header-right-col { gap: 4px; }
+  .header-roas { gap: 6px; }
+  .opps-btn { font-size: 10px; padding: 3px 8px; }
+  .opps-count { font-size: 9px; padding: 1px 5px; }
+
+  /* Opportunities modal — full screen like Deeper Dive */
+  #opps-overlay { padding: 0; align-items: flex-start; }
+  #opps-modal { margin: 0; padding: 14px 14px 24px; border-radius: 0; min-height: 100vh; width: 100vw; max-width: 100vw; border: none; }
+  .opps-section-title { font-size: 10px; }
+  .opps-text { font-size: 12px; }
+  .opps-item { padding: 8px; gap: 8px; }
 
   /* Legend — wrap tightly */
   .legend { gap: 10px; }
@@ -288,10 +306,14 @@ select.ctrl:focus { outline: none; border-color: #34d399; }
   .card { padding: 14px; }
 
   /* Card header */
-  .card-header { flex-wrap: nowrap; }
+  .card-header { flex-wrap: wrap; gap: 6px; }
   .card-header h2 { font-size: 14px; }
-  .deeper-btn { font-size: 11px; padding: 4px 10px; }
+  .card-header-left { flex: 1; min-width: 0; }
+  .deeper-btn { font-size: 11px; padding: 4px 8px; }
   .badge { font-size: 10px; padding: 3px 8px; }
+  .target-roas-input { width: 48px; font-size: 11px; }
+  .header-target span { display: none; } /* hide "Target" and "%" labels to save space */
+  .header-target span:last-child { display: inline; } /* keep the % sign */
 
   /* Account stats — wrap to 3 per row */
   .account-summary { gap: 10px 16px; }
