@@ -46,10 +46,10 @@ select.ctrl:focus { outline: none; border-color: #34d399; }
 .tab-content.active { display: block; }
 
 /* TOOLBAR */
-.toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
-.opps-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; padding: 8px 12px; background: #12151f; border: 1px solid #1f2435; border-radius: 8px; flex-wrap: wrap; }
+.toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; padding: 7px 12px; background: #12151f; border: 1px solid #1f2435; border-radius: 8px; flex-wrap: wrap; }
+.toolbar-right { display: flex; align-items: center; gap: 8px; margin-left: auto; flex-wrap: wrap; }
 .opps-bar-label { font-size: 11px; color: #6b7280; white-space: nowrap; }
-.opps-bar-status { font-size: 11px; color: #9ca3af; flex: 1; }
+.opps-bar-status { font-size: 11px; color: #9ca3af; white-space: nowrap; }
 .opps-refresh-all-btn { background: linear-gradient(135deg, #7c3aed, #2563eb); border: none; color: white; font-size: 11px; font-weight: 600; padding: 5px 14px; border-radius: 5px; cursor: pointer; white-space: nowrap; transition: opacity 0.15s; }
 .opps-refresh-all-btn:hover { opacity: 0.88; }
 .opps-refresh-all-btn:disabled { opacity: 0.5; cursor: wait; }
@@ -389,7 +389,7 @@ select.ctrl:focus { outline: none; border-color: #34d399; }
   <div class="tab" data-tab="mc" onclick="switchTab('mc')">Merchant Center</div>
 </div>
 
-<div class="toolbar">
+<div class="toolbar" id="opps-bar">
   <span class="sort-label">Sort:</span>
   <select class="ctrl" id="sort-select" onchange="sortAccounts(this.value)" style="font-size:11px;padding:4px 22px 4px 8px;">
     <option value="totalCost-desc">Cost &#9660;</option>
@@ -406,18 +406,17 @@ select.ctrl:focus { outline: none; border-color: #34d399; }
     <option value="paused">Paused</option>
     <option value="all">All</option>
   </select>
-</div>
-
-<!-- OPPORTUNITIES CONTROL BAR -->
-<div class="opps-bar" id="opps-bar">
-  <span class="opps-bar-label">&#10024; Opportunities:</span>
-  <select class="ctrl" id="opps-schedule" onchange="setOppsSchedule(this.value)" style="font-size:11px;padding:4px 22px 4px 8px;">
-    <option value="manual">Manually</option>
-    <option value="daily">Every day</option>
-    <option value="weekday">Every weekday</option>
-  </select>
-  <span class="opps-bar-status" id="opps-bar-status"></span>
-  <button class="opps-refresh-all-btn" id="opps-refresh-all-btn" onclick="refreshAllOpportunities()">&#8635; Refresh All</button>
+  <div class="toolbar-right">
+    <span class="toolbar-sep">|</span>
+    <span class="opps-bar-label">&#10024; Opportunities:</span>
+    <select class="ctrl" id="opps-schedule" onchange="setOppsSchedule(this.value)" style="font-size:11px;padding:4px 22px 4px 8px;">
+      <option value="manual">Manually</option>
+      <option value="daily">Every day</option>
+      <option value="weekday">Every weekday</option>
+    </select>
+    <span class="opps-bar-status" id="opps-bar-status"></span>
+    <button class="opps-refresh-all-btn" id="opps-refresh-all-btn" onclick="refreshAllOpportunities()">&#8635; Refresh All</button>
+  </div>
 </div>
 
 <div class="legend">
