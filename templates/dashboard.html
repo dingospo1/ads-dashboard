@@ -1820,7 +1820,34 @@ setTimeout(() => window.location.reload(), 3600000);
 renderAll();
 changeCompare('period');
 updateOppsBarStatus();
-setTimeout(checkAutoRefreshOpps, 5000); // check 5s after load so data is ready
+setTimeout(checkAutoRefreshOpps, 5000);
+setTimeout(preloadAllOpportunities, 8000); // silently pre-fetch all after page settles
+
+/* ============================================================
+   OPPORTUNITIES PRELOAD (background, sequential, no force)
+   ============================================================ */
+async function preloadAllOpportunities() {
+  const accounts = getAllAccounts();
+  for (const acc of accounts) {
+    const skip = getLowPriorityTexts(acc.accountId);
+    const url = '/api/opportunities?account_id=' + encodeURIComponent(acc.accountId)
+              + '&mcc=' + encodeURIComponent(acc.mcc)
+              + '&name=' + encodeURIComponent(acc.name)
+              + (skip.length ? '&skip=' + encodeURIComponent(JSON.stringify(skip)) : '');
+    try {
+      const r = await fetch(url);
+      const d = await r.json();
+      if (d.content) {
+        try {
+          const f = typeof d.content === 'string' ? JSON.parse(d.content) : d.content;
+          setOppsCount(acc.accountId, f);
+        } catch(e) {}
+      }
+    } catch(e) {}
+    // Small gap between requests to avoid hammering the server
+    await new Promise(res => setTimeout(res, 500));
+  }
+}
 
 /* ============================================================
    OPPORTUNITIES SCHEDULE + REFRESH ALL
