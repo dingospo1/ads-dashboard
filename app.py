@@ -82,10 +82,9 @@ def start_scheduler():
     scheduler = BackgroundScheduler()
     interval = int(os.environ.get("REFRESH_INTERVAL_MINUTES", 60))
     scheduler.add_job(refresh_data, "interval", minutes=interval, id="refresh")
-    # Daily opportunities audit — runs at 1am UTC (= 8am ICT Bangkok/Jakarta)
-    scheduler.add_job(refresh_opportunities, "cron", hour=1, minute=0, id="opps")
+    # Opportunities are on-demand only (no daily pre-compute) to keep API costs low
     scheduler.start()
-    logger.info("Scheduler started: refresh every %d min, opportunities daily at 01:00 UTC", interval)
+    logger.info("Scheduler started: refresh every %d min", interval)
 
 
 @app.route("/")
