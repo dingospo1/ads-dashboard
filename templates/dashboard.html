@@ -68,7 +68,7 @@ select.ctrl:focus { outline: none; border-color: #34d399; }
 .card { background: #1a1d27; border-radius: 12px; padding: 18px; border: 1px solid #2a2d3a; transition: border-color 0.2s; }
 .card:hover { border-color: #3a3d4a; }
 .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px; gap: 8px; flex-wrap: wrap; }
-.card-header h2 { font-size: 15px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card-header h2 { font-size: 15px; font-weight: 700; }
 .header-roas { display: flex; flex-direction: row; align-items: center; gap: 8px; flex-shrink: 0; }
 .header-target { display: flex; align-items: center; gap: 4px; font-size: 11px; color: #6b7280; }
 .badge { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 20px; white-space: nowrap; }
@@ -117,11 +117,11 @@ select.ctrl:focus { outline: none; border-color: #34d399; }
 .toggle-btn:hover { color: #e1e4e8; border-color: #4a4d5a; }
 
 /* Card header layout */
-.card-header-left { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
-.header-right-col { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; flex-shrink: 0; }
-/* Action buttons row — sits below ROAS, horizontal, auto-width */
-.card-action-row { display: flex; gap: 5px; flex-wrap: wrap; justify-content: flex-end; margin-top: 2px; }
-.card-action-btn { border: none; color: white; font-size: 11px; font-weight: 600; padding: 5px 12px; border-radius: 5px; cursor: pointer; transition: opacity 0.15s; white-space: nowrap; }
+.card-header-left { flex: 1; min-width: 0; overflow: hidden; }
+.card-header h2 { font-size: 15px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.header-right-col { display: flex; flex-direction: column; align-items: stretch; gap: 5px; flex-shrink: 0; width: 155px; }
+.card-action-row { display: none; } /* unused now */
+.card-action-btn { border: none; color: white; font-size: 11px; font-weight: 600; padding: 6px 10px; border-radius: 5px; cursor: pointer; transition: opacity 0.15s; white-space: nowrap; text-align: center; width: 100%; }
 .card-action-btn:hover { opacity: 0.85; }
 .card-action-btn:disabled { opacity: 0.5; cursor: wait; }
 .btn-opps { background: linear-gradient(135deg, #7c3aed, #2563eb); }
@@ -311,9 +311,8 @@ select.ctrl:focus { outline: none; border-color: #34d399; }
   .opps-refresh-all-btn { padding: 5px 12px; font-size: 11px; margin-left: auto; }
 
   /* Card header — right column */
-  .header-right-col { gap: 4px; }
+  .header-right-col { gap: 4px; width: 130px; }
   .header-roas { gap: 6px; }
-  .card-action-row { gap: 4px; }
   .card-action-btn { font-size: 11px; padding: 5px 8px; }
   .opps-count { font-size: 9px; padding: 1px 5px; }
 
@@ -807,11 +806,9 @@ function renderCard(account, mccKey) {
           '</div>' +
           '<span class="badge badge-' + rc + '">' + fmtRoas(account.totalRoas) + ' ROAS' + badgeRoasDelta + '</span>' +
         '</div>' +
-        '<div class="card-action-row">' +
-          '<button class="card-action-btn btn-opps" id="opps-btn-' + (account.accountId||id) + '" onclick="openOpportunities(\'' + safeName + '\', \'' + mccKey + '\', \'' + (account.accountId||'') + '\')">&#10024; Opportunities' + getOppsBadge(account.accountId) + '</button>' +
-          '<button class="card-action-btn btn-chat" onclick="openChat(\'' + safeName + '\', \'' + mccKey + '\', \'' + (account.accountId||'') + '\')">&#128172; Ask AI</button>' +
-          '<button class="card-action-btn btn-dive" onclick="openDeeperDive(\'' + safeName + '\', \'' + mccKey + '\', \'' + (account.accountId||'') + '\')">&#128269; Deeper Dive</button>' +
-        '</div>' +
+        '<button class="card-action-btn btn-opps" id="opps-btn-' + (account.accountId||id) + '" onclick="openOpportunities(\'' + safeName + '\', \'' + mccKey + '\', \'' + (account.accountId||'') + '\')">&#10024; Opportunities' + getOppsBadge(account.accountId) + '</button>' +
+        '<button class="card-action-btn btn-chat" onclick="openChat(\'' + safeName + '\', \'' + mccKey + '\', \'' + (account.accountId||'') + '\')">&#128172; Ask AI</button>' +
+        '<button class="card-action-btn btn-dive" onclick="openDeeperDive(\'' + safeName + '\', \'' + mccKey + '\', \'' + (account.accountId||'') + '\')">&#128269; Deeper Dive</button>' +
       '</div>' +
     '</div>' +
     '<div class="card-links">' + linksHtml + '</div>' +
