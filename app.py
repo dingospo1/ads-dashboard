@@ -15,6 +15,7 @@ from fetch_data import (
     fetch_all_mc_status, fetch_segment, get_token, list_child_accounts,
     MCCS, SEGMENT_FIELDS, MERCHANT_ID_MAP
 )
+import opportunities as opps_mod
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -63,13 +64,28 @@ def refresh_data():
         _compare.clear()
 
 
+def refresh_opportunities():
+    """Daily: regenerate Opportunities audits for every account."""
+    with _lock:
+        cached = _data.get(("rolling", 7))
+    if not cached:
+        logger.info("Skipping opportunities refresh — no cached data yet")
+        return
+    try:
+        opps_mod.regenerate_all(cached)
+    except Exception as e:
+        logger.error("Opportunities refresh failed: %s", e)
+
+
 def start_scheduler():
     from apscheduler.schedulers.background import BackgroundScheduler
     scheduler = BackgroundScheduler()
     interval = int(os.environ.get("REFRESH_INTERVAL_MINUTES", 60))
     scheduler.add_job(refresh_data, "interval", minutes=interval, id="refresh")
+    # Daily opportunities audit — runs at 1am UTC (= 8am ICT Bangkok/Jakarta)
+    scheduler.add_job(refresh_opportunities, "cron", hour=1, minute=0, id="opps")
     scheduler.start()
-    logger.info("Scheduler started: every %d minutes", interval)
+    logger.info("Scheduler started: refresh every %d min, opportunities daily at 01:00 UTC", interval)
 
 
 @app.route("/")
@@ -342,6 +358,34 @@ def api_accounts():
         except Exception as e:
             result[mcc_key] = {"error": str(e)}
     return jsonify(result)
+
+
+@app.route("/api/opportunities")
+def api_opportunities():
+    """Return cached opportunities for an account, or generate live if ?force=1."""
+    account_id = request.args.get("account_id", "").strip()
+    mcc_key = request.args.get("mcc", "").strip()
+    force = request.args.get("force", "0") == "1"
+    account_name = request.args.get("name", "")
+
+    if not account_id or mcc_key not in ("happy", "upscale"):
+        return jsonify({"error": "account_id and mcc (happy|upscale) required"}), 400
+
+    if not force:
+        cached = opps_mod.get_cached(account_id, mcc_key)
+        if cached:
+            return jsonify(cached)
+
+    # No cache (or forced) — generate synchronously
+    result = opps_mod.generate_opportunities(account_id, mcc_key, account_name)
+    return jsonify(result)
+
+
+@app.route("/api/opportunities/refresh-all", methods=["POST"])
+def api_opps_refresh_all():
+    """Trigger a full regenerate of opportunities for all accounts (async)."""
+    threading.Thread(target=refresh_opportunities, daemon=True).start()
+    return jsonify({"status": "opportunities refresh started"})
 
 
 @app.route("/api/refresh", methods=["POST"])

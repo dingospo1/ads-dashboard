@@ -115,6 +115,19 @@ select.ctrl:focus { outline: none; border-color: #34d399; }
 .deeper-btn:hover { color: #34d399; border-color: #34d399; }
 .card-header-left { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
 
+/* Opportunities button */
+.header-right-col { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
+.opps-btn { background: linear-gradient(135deg, #7c3aed, #2563eb); border: none; color: white; font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 4px; cursor: pointer; transition: opacity 0.15s; white-space: nowrap; }
+.opps-btn:hover { opacity: 0.88; }
+.opps-btn:disabled { opacity: 0.5; cursor: wait; }
+
+/* Opportunities modal content */
+.opps-content { white-space: pre-wrap; font-size: 13px; line-height: 1.6; color: #e1e4e8; padding: 4px 2px; }
+.opps-meta { font-size: 11px; color: #6b7280; margin-bottom: 14px; }
+.opps-loading { font-size: 13px; color: #9ca3af; padding: 24px; text-align: center; }
+.opps-refresh-btn { background: transparent; border: 1px solid #2a2d3a; color: #9ca3af; font-size: 11px; padding: 4px 10px; border-radius: 4px; cursor: pointer; margin-left: 8px; }
+.opps-refresh-btn:hover { color: #34d399; border-color: #34d399; }
+
 /* Compare loading */
 .compare-loading { font-size: 12px; color: #fbbf24; margin-bottom: 12px; }
 
@@ -396,6 +409,21 @@ select.ctrl:focus { outline: none; border-color: #34d399; }
   <div id="mc-grid" class="mc-grid" style="display:none"></div>
 </div>
 
+<!-- OPPORTUNITIES MODAL -->
+<div class="modal-overlay" id="opps-overlay" onclick="closeOppsOutside(event)">
+  <div class="modal" id="opps-modal" style="max-width:760px;">
+    <button class="modal-close" onclick="closeOpportunities()">&times;</button>
+    <div class="modal-header">
+      <div class="modal-title" id="opps-title">&#10024; Opportunities</div>
+      <div class="modal-controls">
+        <button class="opps-refresh-btn" id="opps-refresh" onclick="refreshOpportunities()">Regenerate</button>
+      </div>
+    </div>
+    <div id="opps-meta" class="opps-meta"></div>
+    <div id="opps-body"><div class="opps-loading">Loading analysis...</div></div>
+  </div>
+</div>
+
 <!-- DEEPER DIVE MODAL -->
 <div class="modal-overlay" id="modal-overlay" onclick="closeModalOutside(event)">
   <div class="modal" id="modal">
@@ -668,13 +696,16 @@ function renderCard(account, mccKey) {
         '<h2>' + account.name + '</h2>' +
         '<button class="deeper-btn" onclick="openDeeperDive(\'' + safeName + '\', \'' + mccKey + '\', \'' + (account.accountId||'') + '\')">&#128269; Deeper Dive</button>' +
       '</div>' +
-      '<div class="header-roas">' +
-        '<div class="header-target">' +
-          '<span>Target</span>' +
-          '<input class="target-roas-input" type="number" step="10" min="0" value="' + Math.round(target * 100) + '" onchange="updateTargetRoas(\'' + safeName + '\', this)" />' +
-          '<span>%</span>' +
+      '<div class="header-right-col">' +
+        '<div class="header-roas">' +
+          '<div class="header-target">' +
+            '<span>Target</span>' +
+            '<input class="target-roas-input" type="number" step="10" min="0" value="' + Math.round(target * 100) + '" onchange="updateTargetRoas(\'' + safeName + '\', this)" />' +
+            '<span>%</span>' +
+          '</div>' +
+          '<span class="badge badge-' + rc + '">' + fmtRoas(account.totalRoas) + ' ROAS' + badgeRoasDelta + '</span>' +
         '</div>' +
-        '<span class="badge badge-' + rc + '">' + fmtRoas(account.totalRoas) + ' ROAS' + badgeRoasDelta + '</span>' +
+        '<button class="opps-btn" onclick="openOpportunities(\'' + safeName + '\', \'' + mccKey + '\', \'' + (account.accountId||'') + '\')">&#10024; Opportunities</button>' +
       '</div>' +
     '</div>' +
     '<div class="card-links">' + linksHtml + '</div>' +
@@ -1760,6 +1791,69 @@ setTimeout(() => window.location.reload(), 3600000);
 renderAll();
 // Default: load comparison vs previous period on every page load
 changeCompare('period');
+
+/* ============================================================
+   OPPORTUNITIES MODAL
+   ============================================================ */
+let oppsState = { accountName: '', mccKey: '', accountId: '' };
+
+function openOpportunities(accountName, mccKey, accountId) {
+  oppsState = { accountName, mccKey, accountId };
+  document.getElementById('opps-title').innerHTML = '&#10024; Opportunities &mdash; ' + accountName;
+  document.getElementById('opps-meta').textContent = '';
+  document.getElementById('opps-body').innerHTML = '<div class="opps-loading">Loading analysis...</div>';
+  document.getElementById('opps-overlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  loadOpportunities(false);
+}
+
+function closeOpportunities() {
+  document.getElementById('opps-overlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+function closeOppsOutside(event) {
+  if (event.target && event.target.id === 'opps-overlay') closeOpportunities();
+}
+
+function refreshOpportunities() {
+  document.getElementById('opps-body').innerHTML = '<div class="opps-loading">Regenerating (10-30s)...</div>';
+  document.getElementById('opps-refresh').disabled = true;
+  loadOpportunities(true);
+}
+
+function loadOpportunities(force) {
+  const { accountName, mccKey, accountId } = oppsState;
+  if (!accountId || !mccKey) {
+    document.getElementById('opps-body').innerHTML = '<div class="opps-loading" style="color:#f87171">Missing account ID.</div>';
+    return;
+  }
+  const url = '/api/opportunities?account_id=' + encodeURIComponent(accountId)
+            + '&mcc=' + encodeURIComponent(mccKey)
+            + '&name=' + encodeURIComponent(accountName)
+            + (force ? '&force=1' : '');
+  fetch(url)
+    .then(r => r.json())
+    .then(data => {
+      const btn = document.getElementById('opps-refresh');
+      if (btn) btn.disabled = false;
+      if (data.error) {
+        document.getElementById('opps-body').innerHTML =
+          '<div class="opps-loading" style="color:#f87171">Error: ' + data.error + '</div>';
+        return;
+      }
+      const when = data.generated_at ? new Date(data.generated_at).toLocaleString() : '';
+      document.getElementById('opps-meta').textContent = when ? ('Generated: ' + when) : '';
+      document.getElementById('opps-body').innerHTML =
+        '<div class="opps-content">' + (data.content || '(empty)').replace(/</g,'&lt;') + '</div>';
+    })
+    .catch(err => {
+      const btn = document.getElementById('opps-refresh');
+      if (btn) btn.disabled = false;
+      document.getElementById('opps-body').innerHTML =
+        '<div class="opps-loading" style="color:#f87171">Request failed: ' + err + '</div>';
+    });
+}
 </script>
 </body>
 </html>
