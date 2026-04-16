@@ -360,7 +360,21 @@ def api_accounts():
 
 
 @app.route("/api/opportunities")
-def api_opportunities():
+@app.route("/api/fetch-test")
+def api_fetch_test():
+    """Debug: try fetching one account and return raw error."""
+    from fetch_data import get_token, gaql, MCCS, compute_date_range
+    try:
+        token = get_token("happy")
+        start, end = compute_date_range(days=7)
+        rows = gaql(token, "8804096601", MCCS["happy"]["login_customer_id"],
+                    f"SELECT campaign.name, metrics.cost_micros FROM campaign WHERE segments.date BETWEEN '{start}' AND '{end}' LIMIT 3",
+                    raise_on_error=True)
+        return jsonify({"status": "ok", "rows": len(rows), "sample": rows[:1]})
+    except Exception as e:
+        return jsonify({"status": "error", "error": str(e)})
+
+@app.route("/api/opportunities")
     """Return cached opportunities for an account, or generate live if ?force=1."""
     account_id = request.args.get("account_id", "").strip()
     mcc_key = request.args.get("mcc", "").strip()
