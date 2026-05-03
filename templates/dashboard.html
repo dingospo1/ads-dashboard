@@ -424,6 +424,13 @@ select.ctrl:focus { outline: none; border-color: #34d399; }
 </div>
 <p class="subtitle">{{ start_date }} &rarr; {{ end_date }} &nbsp;&middot;&nbsp; By conversion time &nbsp;&middot;&nbsp; Auto-refreshes hourly</p>
 
+{% if happy_auth_failed %}
+<div style="background:#7f1d1d;border:1px solid #ef4444;border-radius:8px;padding:14px 20px;margin:0 0 16px 0;display:flex;align-items:center;justify-content:space-between;gap:16px;">
+  <span style="color:#fca5a5;font-size:14px;font-weight:600;">⚠️ Happy Mondays authentication expired — accounts not loading</span>
+  <a href="/auth/start" style="background:#ef4444;color:#fff;border:none;padding:8px 18px;border-radius:6px;font-size:13px;font-weight:700;text-decoration:none;white-space:nowrap;">Re-authenticate →</a>
+</div>
+{% endif %}
+
 <div class="summary-bar">
   <div class="stat-box"><div class="stat-value" id="s-accounts">{{ num_accounts }}</div><div class="stat-label">Accounts</div></div>
   <div class="stat-box"><div class="stat-value" id="s-cost">${{ "{:,.0f}".format(total_cost) }}</div><div class="stat-label">Cost</div><div class="stat-delta" id="sd-cost"></div></div>

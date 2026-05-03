@@ -6,9 +6,11 @@ import os
 import json
 import logging
 import threading
+import urllib.parse
 from datetime import datetime, date, timedelta
 
-from flask import Flask, render_template, jsonify, request
+import requests as req_lib
+from flask import Flask, render_template, jsonify, request, redirect
 
 from fetch_data import (
     fetch_all, fetch_all_for_range, fetch_deeper, compute_date_range,
@@ -112,6 +114,13 @@ def dashboard():
     # Compute display date range for subtitle
     start_str, end_str = compute_date_range(days, range_type, custom_start, custom_end)
 
+    # Detect Happy Mondays auth failure — no accounts loaded but Upscale is fine
+    happy_auth_failed = (
+        len(data.get("happy", [])) == 0
+        and len(data.get("upscale", [])) > 0
+        and data.get("fetched_at", "Loading...") != "Loading..."
+    )
+
     return render_template(
         "dashboard.html",
         data_json=json.dumps(data),
@@ -128,6 +137,7 @@ def dashboard():
         custom_end=custom_end or "",
         start_date=start_str,
         end_date=end_str,
+        happy_auth_failed=happy_auth_failed,
     )
 
 
@@ -360,21 +370,7 @@ def api_accounts():
 
 
 @app.route("/api/opportunities")
-@app.route("/api/fetch-test")
-def api_fetch_test():
-    """Debug: try fetching one account and return raw error."""
-    from fetch_data import get_token, gaql, MCCS, compute_date_range
-    try:
-        token = get_token("happy")
-        start, end = compute_date_range(days=7)
-        rows = gaql(token, "8804096601", MCCS["happy"]["login_customer_id"],
-                    f"SELECT campaign.name, metrics.cost_micros FROM campaign WHERE segments.date BETWEEN '{start}' AND '{end}' LIMIT 3",
-                    raise_on_error=True)
-        return jsonify({"status": "ok", "rows": len(rows), "sample": rows[:1]})
-    except Exception as e:
-        return jsonify({"status": "error", "error": str(e)})
-
-@app.route("/api/opportunities")
+def api_opportunities():
     """Return cached opportunities for an account, or generate live if ?force=1."""
     account_id = request.args.get("account_id", "").strip()
     mcc_key = request.args.get("mcc", "").strip()
@@ -441,6 +437,87 @@ def health():
         "ranges_loaded": len(_data),
         "fetched_at": datetime.now().isoformat()
     })
+
+
+def update_render_env(key: str, value: str):
+    """Persist a new token to Render env vars so it survives restarts."""
+    api_key = os.environ.get("RENDER_API_KEY")
+    service_id = os.environ.get("RENDER_SERVICE_ID", "srv-d7de14n7f7vs739p6dkg")
+    if not api_key:
+        logger.warning("RENDER_API_KEY not set — token updated in memory only")
+        return
+    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+    resp = req_lib.get(f"https://api.render.com/v1/services/{service_id}/env-vars", headers=headers, timeout=10)
+    if not resp.ok:
+        logger.error("Render API get env vars failed: %s", resp.text[:200])
+        return
+    updated = []
+    found = False
+    for item in resp.json():
+        ev = item.get("envVar", item)
+        if ev.get("key") == key:
+            updated.append({"key": key, "value": value})
+            found = True
+        else:
+            updated.append({"key": ev["key"], "value": ev.get("value", "")})
+    if not found:
+        updated.append({"key": key, "value": value})
+    put = req_lib.put(f"https://api.render.com/v1/services/{service_id}/env-vars", headers=headers, json=updated, timeout=10)
+    if put.ok:
+        logger.info("Render API: updated %s", key)
+    else:
+        logger.error("Render API: failed to update %s: %s", key, put.text[:200])
+
+
+@app.route("/auth/start")
+def auth_start():
+    """Start Google OAuth flow to re-authenticate Happy Mondays MCC."""
+    client_id = MCCS["happy"]["client_id"]
+    redirect_uri = request.host_url.rstrip("/") + "/auth/callback"
+    params = {
+        "client_id": client_id,
+        "redirect_uri": redirect_uri,
+        "response_type": "code",
+        "scope": "https://www.googleapis.com/auth/adwords",
+        "access_type": "offline",
+        "prompt": "consent",
+    }
+    return redirect("https://accounts.google.com/o/oauth2/auth?" + urllib.parse.urlencode(params))
+
+
+@app.route("/auth/callback")
+def auth_callback():
+    """Handle OAuth callback — exchange code, update token in memory and Render."""
+    code = request.args.get("code")
+    error = request.args.get("error")
+    if error or not code:
+        return f"<h2>Auth failed: {error or 'no code'}</h2><a href='/'>Back</a>", 400
+
+    resp = req_lib.post("https://oauth2.googleapis.com/token", data={
+        "client_id": MCCS["happy"]["client_id"],
+        "client_secret": MCCS["happy"]["client_secret"],
+        "code": code,
+        "redirect_uri": request.host_url.rstrip("/") + "/auth/callback",
+        "grant_type": "authorization_code",
+    }, timeout=10)
+
+    if not resp.ok:
+        return f"<h2>Token exchange failed</h2><a href='/'>Back</a>", 400
+
+    new_token = resp.json().get("refresh_token")
+    if not new_token:
+        return "<h2>No refresh token returned — try again</h2><a href='/auth/start'>Retry</a>", 400
+
+    MCCS["happy"]["refresh_token"] = new_token
+    logger.info("Happy Mondays token refreshed via OAuth flow")
+    update_render_env("HAPPY_REFRESH_TOKEN", new_token)
+    threading.Thread(target=refresh_data, daemon=True).start()
+
+    return """<html><body style="font-family:sans-serif;background:#111;color:#fff;padding:40px;text-align:center">
+        <h2>✅ Re-authenticated successfully!</h2>
+        <p>Dashboard is refreshing data now...</p>
+        <script>setTimeout(() => window.location.href = '/', 3000)</script>
+        </body></html>"""
 
 
 _initialized = False
